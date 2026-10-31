@@ -1,0 +1,205 @@
+import { useContext, useState } from "react";
+import { logout } from "../api/authApi";
+import { generateLearningPath } from "../api/pathApi"; // Import the new API
+import { AuthContext } from "../auth/AuthContext";
+
+export default function Dashboard() {
+    const { user } = useContext(AuthContext);
+    const [loading, setLoading] = useState(false);
+    const [pathResult, setPathResult] = useState(null); // Stores the AI response
+    const [error, setError] = useState("");
+
+    const [formData, setFormData] = useState({
+        currentSkills: "",
+        careerGoal: "",
+        learningStyle: "Visual",
+        difficultyLevel: "Beginner",
+        preferredDuration: ""
+    });
+
+    // Handle input changes
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    // Logout logic
+    async function handleLogout() {
+        await logout();
+        localStorage.removeItem("access_token");
+        window.location.href = "/login";
+    }
+
+    // Submit form to Microservice
+    async function handleSubmit(e) {
+        e.preventDefault();
+        setLoading(true);
+        setError("");
+
+        try {
+            // 1. Call the backend
+            const res = await generateLearningPath(formData);
+
+            // 2. The backend returns a JSON string, assume Axios parses it or we parse it
+            const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+
+            setPathResult(data);
+        } catch (err) {
+            console.error(err);
+            setError("Failed to generate path. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50 p-6">
+            {/* Header */}
+            <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
+                <div>
+                    <h2 className="text-3xl font-bold text-gray-800">Dashboard</h2>
+                    <p className="text-gray-600">Welcome back, {user?.name}!</p>
+                </div>
+                <button
+                    onClick={handleLogout}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
+                >
+                    Logout
+                </button>
+            </div>
+
+            <div className="max-w-4xl mx-auto">
+
+                {/* CONDITIONAL RENDERING: Show Form OR Result */}
+                {!pathResult ? (
+                    /* --- INPUT FORM --- */
+                    <div className="bg-white p-8 rounded-xl shadow-md">
+                        <h3 className="text-xl font-semibold mb-4">Generate Your Learning Path</h3>
+
+                        {error && <div className="p-3 mb-4 bg-red-100 text-red-700 rounded">{error}</div>}
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Current Skills</label>
+                                    <input
+                                        name="currentSkills"
+                                        value={formData.currentSkills}
+                                        onChange={handleChange}
+                                        placeholder="e.g. Java, HTML"
+                                        className="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Career Goal</label>
+                                    <input
+                                        name="careerGoal"
+                                        value={formData.careerGoal}
+                                        onChange={handleChange}
+                                        placeholder="e.g. Full Stack Developer"
+                                        className="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Learning Style</label>
+                                    <select
+                                        name="learningStyle"
+                                        value={formData.learningStyle}
+                                        onChange={handleChange}
+                                        className="w-full mt-1 p-2 border rounded-lg"
+                                    >
+                                        <option>Docs</option>
+                                        <option>Youtube</option>
+                                        <option>Visual</option>
+                                        <option>Reading</option>
+                                        <option>Hands-on</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Difficulty</label>
+                                    <select
+                                        name="difficultyLevel"
+                                        value={formData.difficultyLevel}
+                                        onChange={handleChange}
+                                        className="w-full mt-1 p-2 border rounded-lg"
+                                    >
+                                        <option>Beginner</option>
+                                        <option>Intermediate</option>
+                                        <option>Advanced</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Duration</label>
+                                    <input
+                                        name="preferredDuration"
+                                        value={formData.preferredDuration}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 4 weeks"
+                                        className="w-full mt-1 p-2 border rounded-lg"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className={`w-full py-3 text-white font-bold rounded-lg transition ${loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
+                            >
+                                {loading ? "Generating with AI..." : "Create Roadmap"}
+                            </button>
+                        </form>
+                    </div>
+                ) : (
+                    /* --- RESULT DISPLAY --- */
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 border-blue-500">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">{pathResult.title}</h1>
+                                    <p className="mt-2 text-gray-600">{pathResult.overview}</p>
+                                </div>
+                                <button
+                                    onClick={() => setPathResult(null)}
+                                    className="text-sm text-blue-600 underline hover:text-blue-800"
+                                >
+                                    Create New
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-6">
+                            {pathResult.weeks?.map((week, index) => (
+                                <div key={index} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase">
+                                            Week {week.weekNumber}
+                                        </span>
+                                        <h3 className="text-xl font-bold text-gray-800">{week.topic}</h3>
+                                    </div>
+                                    <p className="text-gray-700 mb-4">{week.description}</p>
+
+                                    {week.resources && (
+                                        <div className="bg-gray-50 p-3 rounded text-sm">
+                                            <span className="font-semibold text-gray-600 block mb-1">Resources:</span>
+                                            <ul className="list-disc list-inside text-blue-600">
+                                                {week.resources.map((res, i) => (
+                                                    <li key={i}>{res}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

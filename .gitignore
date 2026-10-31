@@ -1,0 +1,39 @@
+# Root-level gitignore for PersonalAITutor monorepo
+
+# IDE / Editor
+.idea/
+.vscode/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variable files - NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+# DO track templates: .env.example
+
+# Java / Maven build output
+**/target/
+**/*.class
+
+# Node.js / Frontend
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Spring Boot
+spring-boot-starter-*/

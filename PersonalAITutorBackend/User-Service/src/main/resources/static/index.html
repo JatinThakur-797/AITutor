@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Simulator for Java Devs</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom animations not in default Tailwind */
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translate(-50%, 10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.3s ease-out forwards;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.5s ease-out forwards;
+        }
+
+        /* Dot pattern background */
+        .bg-dot-pattern {
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Scrollbar hiding for cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 h-screen flex overflow-hidden">
+
+<!-- SIDEBAR -->
+<aside class="w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl z-10 shrink-0">
+    <div class="p-6 border-b border-slate-700 bg-slate-950">
+        <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            GenAI Simulator
+        </h1>
+        <p class="text-xs text-slate-400 mt-2">Interactive Learning Path</p>
+    </div>
+
+    <!-- Module List Container -->
+    <div id="sidebar-modules" class="flex-1 overflow-y-auto p-4 space-y-2">
+        <!-- Buttons injected by JS -->
+    </div>
+
+    <div class="p-4 bg-slate-950 text-xs text-slate-500 border-t border-slate-800">
+        Step-by-Step Guide for Java Developers
+    </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 p-6 flex justify-between items-center shadow-sm shrink-0">
+        <div>
+            <h2 id="header-title" class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <!-- Icon and Title injected by JS -->
+            </h2>
+            <p class="text-slate-500 mt-1">Concept: <span id="header-concept" class="font-semibold text-blue-600"></span></p>
+        </div>
+    </header>
+
+    <!-- Content Body -->
+    <div class="flex-1 overflow-y-auto p-6 bg-slate-50">
+        <div class="max-w-5xl mx-auto space-y-6">
+
+            <!-- Top Row: Explanations -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Concept Card -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-blue-500"></i> The Concept
+                    </h3>
+                    <p id="concept-text" class="text-slate-600 leading-relaxed">
+                        <!-- Explanation text -->
+                    </p>
+                </div>
+
+                <!-- Java Analogy Card -->
+                <div class="bg-slate-900 text-slate-200 p-6 rounded-xl shadow-sm border border-slate-800 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10">
+                        <i data-lucide="code" class="w-24 h-24"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-3 flex items-center gap-2 text-green-400">
+                        <i data-lucide="terminal" class="w-5 h-5"></i> Java Developer Analogy
+                    </h3>
+                    <div class="font-mono text-sm leading-relaxed bg-slate-950 p-4 rounded-lg border border-slate-800 text-green-300">
+                        <span class="text-slate-500 block mb-2">// Java Backend Equivalent</span>
+                        <span id="java-text"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Simulator -->
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                <div class="bg-blue-50 border-b border-blue-100 p-4 flex justify-between items-center">
+                    <h3 class="font-bold text-blue-800 flex items-center gap-2">
+                        <i data-lucide="play-circle" class="w-5 h-5"></i> Live Simulator
+                    </h3>
+                    <span class="text-xs font-semibold text-blue-600 uppercase tracking-wider bg-blue-100 px-2 py-1 rounded">
+                            Interactive Demo
+                        </span>
+                </div>
+
+                <!-- Simulator Canvas -->
+                <div id="simulator-container" class="p-8 min-h-[400px] flex items-center justify-center bg-dot-pattern">
+                    <!-- Dynamic Simulator Content injected here -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<script>
+    // --- DATA ---
+    const modules = [
+        {
+            id: 1,
+            title: "1. Intro to LLMs & Tokens",
+            iconName: "brain",
+            concept: "The Brain of AI",
+            explanation: "An LLM (Large Language Model) is like a giant prediction engine. It doesn't 'know' things; it predicts the next word based on probability.",
+            javaAnalogy: "Think of an LLM as a `Stateless Service` in Spring Boot. It takes an input (Prompt), processes it using huge logic (Weights), and returns a String (Completion).",
+            simulatorType: "tokenizer"
+        },
+        {
+            id: 2,
+            title: "2. Prompt Templates",
+            iconName: "file-text",
+            concept: "Dynamic Inputs",
+            explanation: "We don't just send raw text. We wrap user input in a structure to guide the AI.",
+            javaAnalogy: "This is exactly like `String.format()` or a `DTO` in Java. You have a template: 'Translate {text} to French'. You inject the user's input into the `{text}` placeholder.",
+            simulatorType: "prompt"
+        },
+        {
+            id: 3,
+            title: "3. Chains",
+            iconName: "layers",
+            concept: "Pipelines",
+            explanation: "Real apps need more than one step. A Chain connects multiple AI calls together.",
+            javaAnalogy: "Think of a Chain as a 'Service Layer' method that calls multiple helper functions in order: `step2(step1(input))`.",
+            simulatorType: "chain"
+        },
+        {
+            id: 4,
+            title: "4. Memory",
+            iconName: "box",
+            concept: "Context",
+            explanation: "LLMs are stateless (they forget instantly). 'Memory' is just passing the previous chat history back into the prompt every time.",
+            javaAnalogy: "It's like passing a `List<Message> history` argument to every method call because the class has no instance variables (Stateless Bean).",
+            simulatorType: "memory"
+        },
+        {
+            id: 5,
+            title: "5. RAG (Retrieval Augmented Gen)",
+            iconName: "database",
+            concept: "Connecting to Data",
+            explanation: "LLMs don't know your private data (PDFs). RAG searches your data *first*, pastes the relevant text into the prompt, and *then* asks the LLM.",
+            javaAnalogy: "This is a `Spring Service` that first queries a `Database` (Vector DB), gets the result, and *then* sends it to the AI for formatting.",
+            simulatorType: "rag"
+        },
+        {
+            id: 6,
+            title: "6. Agents & Tools",
+            iconName: "wrench",
+            concept: "AI with Hands",
+            explanation: "Agents let the LLM decide which 'Tool' (function) to call. It can run code, search Google, or calculate numbers.",
+            javaAnalogy: "This is a `Controller` with a `Switch Case`. Based on the user's intent, it decides whether to call `weatherService.get()` or `mathService.calc()`.",
+            simulatorType: "agent"
+        }
+    ];
+
+    let activeModuleId = 1;
+
+    // --- APP INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderSidebar();
+        loadModule(1);
+    });
+
+    // --- CORE FUNCTIONS ---
+
+    function renderSidebar() {
+        const sidebarContainer = document.getElementById('sidebar-modules');
+        sidebarContainer.innerHTML = '';
+
+        modules.forEach(mod => {
+            const btn = document.createElement('button');
+            const isActive = mod.id === activeModuleId;
+
+            btn.className = `w-full flex items-center p-3 rounded-lg text-sm transition-all duration-200 mb-1 ${
+                isActive
+                    ? 'bg-blue-600 text-white shadow-lg translate-x-1'
+                    : 'hover:bg-slate-800 text-slate-400'
+            }`;
+            btn.onclick = () => loadModule(mod.id);
+
+            btn.innerHTML = `
+                    <span class="mr-3 opacity-80"><i data-lucide="${mod.iconName}" class="w-5 h-5"></i></span>
+                    <span class="text-left font-medium">${mod.title}</span>
+                `;
+            sidebarContainer.appendChild(btn);
+        });
+        lucide.createIcons();
+    }
+
+    function loadModule(id) {
+        activeModuleId = id;
+        const mod = modules.find(m => m.id === id);
+
+        // Re-render sidebar to update active class
+        renderSidebar();
+
+        // Update Header
+        const headerTitle = document.getElementById('header-title');
+        headerTitle.innerHTML = `<span class="p-2 bg-blue-100 rounded-lg text-blue-600"><i data-lucide="${mod.iconName}" class="w-6 h-6"></i></span> ${mod.title}`;
+        document.getElementById('header-concept').textContent = mod.concept;
+
+        // Update Explanations
+        document.getElementById('concept-text').textContent = mod.explanation;
+        document.getElementById('java-text').textContent = mod.javaAnalogy;
+
+        // Render Simulator
+        const simContainer = document.getElementById('simulator-container');
+        simContainer.innerHTML = ''; // Clear previous
+
+        switch(mod.simulatorType) {
+            case 'tokenizer': renderTokenizer(simContainer); break;
+            case 'prompt': renderPrompt(simContainer); break;
+            case 'chain': renderChain(simContainer); break;
+            case 'memory': renderMemory(simContainer); break;
+            case 'rag': renderRag(simContainer); break;
+            case 'agent': renderAgent(simContainer); break;
+        }
+
+        // Refresh icons in newly added DOM content
+        lucide.createIcons();
+    }
+
+    // --- SIMULATOR RENDERERS ---
+
+    // 1. Tokenizer
+    function renderTokenizer(container) {
+        container.innerHTML = `
+                <div class="w-full max-w-lg space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-slate-600">Enter Input String:</label>
+                        <input type="text" id="token-input" value="Hello Java Developer"
+                            class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="flex justify-center my-4">
+                        <i data-lucide="arrow-down" class="text-slate-400 md:hidden"></i>
+                        <i data-lucide="arrow-right" class="text-slate-400 hidden md:block"></i>
+                    </div>
+                    <div class="p-4 bg-slate-100 rounded-lg border border-slate-200">
+                        <label class="text-xs font-bold text-slate-500 uppercase mb-2 block">LLM View (Tokens)</label>
+                        <div id="token-output" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <p class="text-xs text-slate-400 text-center">*Real models turn these tokens into numeric vectors (e.g., [0.1, -0.4, ...])</p>
+                </div>
+            `;
+
+        const input = document.getElementById('token-input');
+        const output = document.getElementById('token-output');
+
+        const updateTokens = () => {
+            const words = input.value.split(/(\s+)/).filter(e => e.trim().length > 0);
+            output.innerHTML = words.map((w, i) => `
+                    <span class="${i % 2 === 0 ? 'bg-blue-200' : 'bg-purple-200'} px-3 py-1 rounded-md text-slate-800 font-mono text-sm shadow-sm transition-all hover:scale-105 cursor-default">
+                        ${w}
+                    </span>
+                `).join('');
+        };
+
+        input.addEventListener('input', updateTokens);
+        updateTokens(); // Initial run
+    }
+
+    // 2. Prompt Template
+    function renderPrompt(container) {
+        container.innerHTML = `
+                <div class="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    <div class="space-y-4">
+                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Variable 1: TOPIC</label>
+                            <input id="prompt-topic" value="Java" class="w-full p-2 border rounded bg-slate-50">
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Variable 2: LANGUAGE</label>
+                            <select id="prompt-lang" class="w-full p-2 border rounded bg-slate-50">
+                                <option>Hindi</option>
+                                <option>French</option>
+                                <option>Spanish</option>
+                                <option>Binary Code</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -left-4 top-1/2 -translate-y-1/2 hidden md:block">
+                           <i data-lucide="arrow-right" class="text-blue-400"></i>
+                        </div>
+                        <div class="bg-slate-900 text-green-400 p-6 rounded-xl font-mono text-sm shadow-xl">
+                            <p class="text-slate-500 mb-2">// Final Prompt sent to LLM</p>
+                            <p>
+                                "You are a helpful assistant." <br><br>
+                                "Explain <span id="out-topic" class="bg-blue-900 text-white px-1 rounded">Java</span> to me in <span id="out-lang" class="bg-purple-900 text-white px-1 rounded">Hindi</span>."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        const topicInput = document.getElementById('prompt-topic');
+        const langInput = document.getElementById('prompt-lang');
+        const topicOut = document.getElementById('out-topic');
+        const langOut = document.getElementById('out-lang');
+
+        const update = () => {
+            topicOut.textContent = topicInput.value;
+            langOut.textContent = langInput.value;
+        };
+
+        topicInput.addEventListener('input', update);
+        langInput.addEventListener('change', update);
+    }
+
+    // 3. Chain
+    function renderChain(container) {
+        container.innerHTML = `
+                <div class="w-full flex flex-col items-center">
+                   <button id="run-chain-btn" class="mb-8 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-semibold shadow-lg transition-all flex items-center gap-2">
+                     <i data-lucide="play-circle" class="w-4 h-4"></i> Run Chain
+                   </button>
+
+                   <div class="flex flex-col md:flex-row gap-4 items-center">
+                      <!-- Step 1 -->
+                      <div id="step-1" class="p-4 rounded-xl border-2 border-slate-200 bg-white opacity-50 w-48 text-center transition-all duration-500">
+                         <div class="font-bold text-slate-700">Input</div>
+                         <div class="text-xs text-slate-500 mt-1">User Query</div>
+                      </div>
+
+                      <i id="arr-1" data-lucide="arrow-right" class="text-slate-300 transition-colors"></i>
+
+                      <!-- Step 2 -->
+                      <div id="step-2" class="p-4 rounded-xl border-2 border-slate-200 bg-white opacity-50 w-48 text-center transition-all duration-500 relative">
+                         <div class="font-bold text-slate-700">LLM Processing</div>
+                         <div class="text-xs text-slate-500 mt-1">Reasoning...</div>
+                         <div id="loader" class="mt-2 hidden w-4 h-4 bg-blue-400 rounded-full mx-auto animate-pulse"></div>
+                      </div>
+
+                      <i id="arr-2" data-lucide="arrow-right" class="text-slate-300 transition-colors"></i>
+
+                      <!-- Step 3 -->
+                      <div id="step-3" class="p-4 rounded-xl border-2 border-slate-200 bg-white opacity-50 w-48 text-center transition-all duration-500">
+                         <div class="font-bold text-slate-700">Output Parser</div>
+                         <div class="text-xs text-slate-500 mt-1">Format as JSON</div>
+                      </div>
+                   </div>
+                </div>
+            `;
+        lucide.createIcons();
+
+        const btn = document.getElementById('run-chain-btn');
+
+        btn.onclick = () => {
+            // Reset
+            ['step-1', 'step-2', 'step-3'].forEach(id => {
+                const el = document.getElementById(id);
+                el.className = "p-4 rounded-xl border-2 border-slate-200 bg-white opacity-50 w-48 text-center transition-all duration-500 relative";
+            });
+            ['arr-1', 'arr-2'].forEach(id => document.getElementById(id).classList.remove('text-green-500', 'text-blue-500'));
+            document.getElementById('loader').classList.add('hidden');
+
+            // Animate
+            setTimeout(() => {
+                const s1 = document.getElementById('step-1');
+                s1.className = "p-4 rounded-xl border-2 border-green-500 bg-green-50 shadow-green-200 shadow-lg scale-105 w-48 text-center transition-all duration-500 relative";
+                document.getElementById('arr-1').classList.add('text-green-500');
+            }, 100);
+
+            setTimeout(() => {
+                const s2 = document.getElementById('step-2');
+                s2.className = "p-4 rounded-xl border-2 border-blue-500 bg-blue-50 shadow-blue-200 shadow-lg scale-105 w-48 text-center transition-all duration-500 relative";
+                document.getElementById('loader').classList.remove('hidden');
+                document.getElementById('arr-2').classList.add('text-blue-500');
+            }, 1500);
+
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('hidden');
+                const s3 = document.getElementById('step-3');
+                s3.className = "p-4 rounded-xl border-2 border-purple-500 bg-purple-50 shadow-purple-200 shadow-lg scale-105 w-48 text-center transition-all duration-500 relative";
+            }, 3000);
+        };
+    }
+
+    // 4. Memory
+    let chatHistory = [
+        { role: 'user', text: "Hi, I'm Nitish." },
+        { role: 'ai', text: "Hello Nitish! How can I help?" }
+    ];
+
+    function renderMemory(container) {
+        // Reset history slightly for demo purposes when switching tabs
+        if(chatHistory.length > 4) chatHistory = chatHistory.slice(0, 2);
+
+        container.innerHTML = `
+                <div class="w-full max-w-lg flex flex-col h-[300px]">
+                    <div id="chat-box" class="flex-1 bg-white border border-slate-200 rounded-t-xl p-4 overflow-y-auto space-y-3">
+                        <!-- Messages -->
+                    </div>
+                    <div class="bg-slate-100 p-4 rounded-b-xl border border-t-0 border-slate-200 flex justify-center">
+                         <button id="add-mem-btn" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-800 disabled:opacity-50 transition">
+                           Ask: 'What is my name?'
+                         </button>
+                    </div>
+                </div>
+            `;
+
+        const chatBox = document.getElementById('chat-box');
+        const btn = document.getElementById('add-mem-btn');
+
+        const renderChats = () => {
+            chatBox.innerHTML = chatHistory.map(msg => `
+                    <div class="flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}">
+                        <div class="max-w-[80%] p-3 rounded-lg text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-800 rounded-bl-none'}">
+                            <span class="block text-[10px] opacity-70 mb-1 uppercase tracking-wider">${msg.role}</span>
+                            ${msg.text}
+                        </div>
+                    </div>
+                `).join('');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        btn.onclick = () => {
+            chatHistory.push({ role: 'user', text: "What is my name?" });
+            chatHistory.push({ role: 'ai', text: "Your name is Nitish (I remember because it's in the history list!)." });
+            renderChats();
+            btn.disabled = true;
+            btn.textContent = "Memory Limit Reached (Demo)";
+        };
+
+        renderChats();
+    }
+
+    // 5. RAG
+    function renderRag(container) {
+        container.innerHTML = `
+                <div class="w-full max-w-3xl relative">
+                  <!-- Pipeline -->
+                  <div class="flex justify-between items-center mb-12 relative z-10">
+
+                    <!-- User -->
+                    <div class="text-center group">
+                      <div class="w-16 h-16 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center shadow-sm mb-2">
+                         <i data-lucide="message-square" class="text-slate-400"></i>
+                      </div>
+                      <div class="text-xs font-bold text-slate-500">User Query</div>
+                    </div>
+
+                    <div id="rag-line-1" class="h-1 flex-1 mx-2 rounded bg-slate-200 transition-colors duration-700"></div>
+
+                    <!-- DB -->
+                    <div class="text-center relative">
+                      <div id="rag-db" class="w-20 h-20 bg-white border-2 border-slate-200 rounded-xl flex items-center justify-center shadow-sm mb-2 transition-all duration-500">
+                         <i id="rag-db-icon" data-lucide="database" class="w-8 h-8 text-slate-400"></i>
+                      </div>
+                      <div class="text-xs font-bold text-slate-500">Vector DB</div>
+                      <div id="rag-popover" class="hidden absolute -top-16 left-1/2 -translate-x-1/2 bg-orange-100 text-orange-800 text-xs p-2 rounded whitespace-nowrap border border-orange-200 animate-fade-in-up">
+                           Found: "Company Policy.pdf"
+                      </div>
+                    </div>
+
+                    <div id="rag-line-2" class="h-1 flex-1 mx-2 rounded bg-slate-200 transition-colors duration-700"></div>
+
+                    <!-- LLM -->
+                    <div class="text-center">
+                      <div id="rag-llm" class="w-16 h-16 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center shadow-sm mb-2 transition-all duration-500">
+                         <i id="rag-llm-icon" data-lucide="brain" class="text-slate-400"></i>
+                      </div>
+                      <div class="text-xs font-bold text-slate-500">LLM</div>
+                    </div>
+                  </div>
+
+                  <!-- Control -->
+                  <div class="text-center">
+                      <button id="start-rag-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold shadow-lg transition-all">
+                        Start RAG Process
+                      </button>
+                      <div id="rag-status" class="hidden bg-slate-800 text-white px-6 py-2 rounded-full inline-block font-mono text-sm"></div>
+                  </div>
+
+                  <div id="rag-result" class="hidden mt-8 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm animate-fade-in text-center max-w-md mx-auto">
+                      <strong>Answer:</strong> "According to the document 'Company Policy.pdf', retrieval is successful."
+                  </div>
+                </div>
+            `;
+        lucide.createIcons();
+
+        const btn = document.getElementById('start-rag-btn');
+        const status = document.getElementById('rag-status');
+
+        btn.onclick = () => {
+            btn.classList.add('hidden');
+            status.classList.remove('hidden');
+
+            // Phase 1: Searching
+            status.textContent = "Searching Vectors...";
+            document.getElementById('rag-line-1').classList.replace('bg-slate-200', 'bg-blue-400');
+            const db = document.getElementById('rag-db');
+            db.className = "w-20 h-20 bg-white border-2 border-orange-500 rounded-xl flex items-center justify-center shadow-orange-200 shadow-lg scale-110 mb-2 transition-all duration-500";
+            document.getElementById('rag-db-icon').classList.replace('text-slate-400', 'text-orange-500');
+
+            setTimeout(() => {
+                // Phase 2: Found
+                status.textContent = "Context Retrieved!";
+                document.getElementById('rag-popover').classList.remove('hidden');
+            }, 1500);
+
+            setTimeout(() => {
+                // Phase 3: Generating
+                status.textContent = "Generating Answer...";
+                document.getElementById('rag-line-2').classList.replace('bg-slate-200', 'bg-green-400');
+                const llm = document.getElementById('rag-llm');
+                llm.className = "w-16 h-16 bg-green-50 border-2 border-green-500 rounded-full flex items-center justify-center shadow-sm mb-2 transition-all duration-500";
+                document.getElementById('rag-llm-icon').classList.replace('text-slate-400', 'text-green-600');
+            }, 3000);
+
+            setTimeout(() => {
+                document.getElementById('rag-result').classList.remove('hidden');
+                status.classList.add('hidden');
+            }, 4500);
+        };
+    }
+
+    // 6. Agent
+    function renderAgent(container) {
+        container.innerHTML = `
+                <div class="w-full max-w-md space-y-6">
+                  <div class="flex gap-2">
+                    <input id="agent-input" class="flex-1 p-3 border border-slate-300 rounded-lg" placeholder="Ask math or general question..." value="What is 50 * 5?">
+                    <button id="agent-decide-btn" class="bg-purple-600 text-white px-4 rounded-lg font-medium hover:bg-purple-700">
+                      Decide
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4">
+                    <div id="tool-calc" class="p-4 border-2 border-slate-100 bg-slate-50 opacity-50 rounded-xl flex flex-col items-center gap-2 transition-all">
+                      <div class="bg-white p-3 rounded-full shadow-sm"><i data-lucide="cpu" class="w-6 h-6 text-purple-500"></i></div>
+                      <span class="font-bold text-slate-700">Calculator Tool</span>
+                    </div>
+
+                    <div id="tool-search" class="p-4 border-2 border-slate-100 bg-slate-50 opacity-50 rounded-xl flex flex-col items-center gap-2 transition-all">
+                      <div class="bg-white p-3 rounded-full shadow-sm"><i data-lucide="search" class="w-6 h-6 text-blue-500"></i></div>
+                      <span class="font-bold text-slate-700">Google Search Tool</span>
+                    </div>
+                  </div>
+
+                  <p id="agent-msg" class="hidden text-center text-sm text-slate-600 bg-slate-100 p-2 rounded"></p>
+                </div>
+            `;
+        lucide.createIcons();
+
+        const btn = document.getElementById('agent-decide-btn');
+        const input = document.getElementById('agent-input');
+        const msg = document.getElementById('agent-msg');
+        const calc = document.getElementById('tool-calc');
+        const search = document.getElementById('tool-search');
+
+        btn.onclick = () => {
+            // Reset styling
+            calc.className = "p-4 border-2 border-slate-100 bg-slate-50 opacity-50 rounded-xl flex flex-col items-center gap-2 transition-all";
+            search.className = "p-4 border-2 border-slate-100 bg-slate-50 opacity-50 rounded-xl flex flex-col items-center gap-2 transition-all";
+
+            const val = input.value.toLowerCase();
+            let toolName = "";
+
+            if (val.includes("*") || val.includes("+") || val.includes("math") || val.includes("-") || val.includes("/")) {
+                toolName = "Calculator";
+                calc.className = "p-4 border-2 border-purple-500 bg-purple-50 scale-105 rounded-xl flex flex-col items-center gap-2 transition-all";
+            } else {
+                toolName = "Google Search";
+                search.className = "p-4 border-2 border-blue-500 bg-blue-50 scale-105 rounded-xl flex flex-col items-center gap-2 transition-all";
+            }
+
+            msg.innerHTML = `Agent decided to use: <strong>${toolName}</strong>`;
+            msg.classList.remove('hidden');
+        };
+    }
+
+</script>
+</body>
+</html>

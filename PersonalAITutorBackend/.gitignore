@@ -1,0 +1,17 @@
+.idea/
+*.class
+target/
+*.iml
+
+# Environment variables - never commit real credentials
+.env
+.env.local
+# DO track the template: .env.example
+
+# Maven wrapper (keep in repo - needed for CI)
+# mvnw
+# mvnw.cmd
+
+# OS artifacts
+.DS_Store
+Thumbs.db
