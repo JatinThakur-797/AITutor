@@ -81,7 +81,7 @@ export default function MermaidViewer({ chart }) {
     return (
         <div
             ref={containerRef}
-            className="flex justify-center my-8 p-8 bg-[#0a0a0f] rounded-2xl border border-zinc-800/80 shadow-2xl overflow-x-auto transition-all hover:border-indigo-500/30"
+            className="flex justify-center my-8 p-6 bg-white rounded border border-[#E7E5E4] overflow-x-auto"
         />
     );
 }

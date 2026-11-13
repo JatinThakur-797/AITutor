@@ -157,7 +157,7 @@ export default function Dashboard() {
 
                 {/* 3. INPUT FORM (Show if no path selected) */}
                 {!selectedPath && !loading && (
-                    <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                    <div className="max-w-2xl mx-auto bg-white p-8 rounded border border-gray-200">
                         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
 
                         <form onSubmit={handleSubmit} className="space-y-5">
@@ -197,8 +197,8 @@ export default function Dashboard() {
                                 </div>
                             </div>
 
-                            <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition duration-200">
-                                Generate Roadmap ⚡
+                            <button type="submit" className="w-full bg-[#0F766E] text-white font-semibold py-2.5 rounded text-sm hover:opacity-90 transition-opacity">
+                                Generate Roadmap
                             </button>
                         </form>
                     </div>
@@ -208,7 +208,7 @@ export default function Dashboard() {
                 {selectedPath && !loading && (
                     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in-up">
                         {/* Title Card */}
-                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 relative overflow-hidden">
+                        <div className="bg-white p-8 rounded border border-gray-200 relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-2 h-full bg-blue-500"></div>
                             <h1 className="text-3xl font-bold text-gray-900">{selectedPath.title}</h1>
                             <p className="mt-2 text-gray-600 leading-relaxed">{selectedPath.overview}</p>
