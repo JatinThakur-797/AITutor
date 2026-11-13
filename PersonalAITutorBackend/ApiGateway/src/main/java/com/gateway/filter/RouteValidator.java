@@ -17,7 +17,8 @@ public class RouteValidator {
             "/oauth2",
             "/login",
             "/health",
-            "/eureka"
+            "/eureka",
+            "/fallback"
     );
     public static Predicate<ServerHttpRequest> isSecured =
             request -> openApiEndpoints.stream().noneMatch(
