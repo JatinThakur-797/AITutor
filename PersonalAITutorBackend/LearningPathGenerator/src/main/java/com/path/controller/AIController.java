@@ -15,15 +15,8 @@ import com.path.service.LessonService;
 import com.path.service.RoadmapService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import lombok.RequiredArgsConstructor;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +29,7 @@ import java.util.UUID;
 @RequestMapping("/api/path")
 @RequiredArgsConstructor
 public class AIController {
+    private static final Logger log = LoggerFactory.getLogger(AIController.class);
 
     private final AIService aiService;
     private final PromptsClass prompts;
@@ -54,7 +48,7 @@ public class AIController {
             @Valid @RequestBody UserRequest request,
             @RequestHeader("X-User-Id") String userIdString
     ) {
-        System.out.println("From Quiz controller");
+        log.debug("Generating quiz for request");
         UUID userId = parseUserId(userIdString);
 
         // Save goal record — status = QUIZ_PENDING
@@ -133,12 +127,14 @@ public class AIController {
         String prompt = prompts.buildRoadmapPromptWithMemory(goal, startDay, days, coveredTopics);
 
         RoadmapResponse response = aiService.generateRoadmap(prompt);
-        roadmapService.saveRoadmapChunk(roadmap, response.getRoadmap());
+        if (!Boolean.TRUE.equals(response.getDegraded())) {
+            roadmapService.saveRoadmapChunk(roadmap, response.getRoadmap());
 
-        // Update status on first generation
-        if (goal.getStatus() != GoalStatus.ROADMAP_GENERATED) {
-            goal.setStatus(GoalStatus.ROADMAP_GENERATED);
-            goalRepo.save(goal);
+            // Update status on first generation
+            if (goal.getStatus() != GoalStatus.ROADMAP_GENERATED) {
+                goal.setStatus(GoalStatus.ROADMAP_GENERATED);
+                goalRepo.save(goal);
+            }
         }
 
         return ResponseEntity.ok(response);
@@ -198,7 +194,7 @@ public class AIController {
             @RequestHeader("X-User-Id") String userIdString
     ) {
         UUID userId = parseUserId(userIdString);
-        System.out.println("gaol Id " + goalId + " day Number : " + dayNumber);
+        log.debug("Marking day complete: goalId={}, dayNumber={}", goalId, dayNumber);
         // Security: verify the goal belongs to this user
         UserGoal goal = goalRepo.findByIdAndUserId(goalId, userId)
                 .orElseThrow(() -> new RuntimeException("Goal not found or access denied"));
@@ -217,7 +213,7 @@ public class AIController {
     ) {
 
         UUID userId = parseUserId(userIdString);
-        System.out.println("Request reached to getRoadmapDays method");
+        log.debug("Fetching roadmap days for goalId={}", goalId);
         // Security: verify ownership
         UserGoal goal = goalRepo.findByIdAndUserId(goalId, userId)
                 .orElseThrow(() -> new RuntimeException("Goal not found"));

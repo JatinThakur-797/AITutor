@@ -5,7 +5,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "AI-SERVICE", configuration = FeignConfig.class)
+@FeignClient(name = "AI-SERVICE", configuration = FeignConfig.class, fallbackFactory = AIClientFallbackFactory.class)
 public interface AIClient {
 
     @PostMapping("/api/ai/generate")

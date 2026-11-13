@@ -10,6 +10,8 @@ import com.path.repository.DayPlanRepo;
 import com.path.repository.RoadmapRepo;
 import com.path.repository.UserGoalRepo;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class LessonService {
+    private static final Logger log = LoggerFactory.getLogger(LessonService.class);
 
     private final UserGoalRepo goalRepo;
     private final RoadmapRepo roadmapRepo;
@@ -50,8 +53,20 @@ public class LessonService {
                         goal.getGoal()
                 );
 
-                // If this throws an exception, the execution jumps to the catch block BEFORE saving to DB
                 LessonResponse newLesson = aiService.generateLesson(prompt);
+
+                if (Boolean.TRUE.equals(newLesson.getDegraded())) {
+                    isFallback = true;
+                    return new LessonContentDTO(
+                            dayPlan.getMainTopic(),
+                            dayPlan.getSubTopics(),
+                            newLesson.getLesson(),
+                            newLesson.getTask() != null ? newLesson.getTask().getType() : "ACTIVITY",
+                            newLesson.getTask() != null && newLesson.getTask().getContent() != null ? newLesson.getTask().getContent() : Map.of(),
+                            true,
+                            true
+                    );
+                }
 
                 dayPlan.setLessonContent(newLesson.getLesson());
                 dayPlan.setTaskType(newLesson.getTask().getType());
@@ -60,8 +75,7 @@ public class LessonService {
                 dayPlanRepo.save(dayPlan);
 
             } catch (Exception e) {
-                // AI Failed. We catch it here to provide a good UX, but WE DO NOT SAVE TO DB.
-               System.out.println("Serving fallback content for Day {} due to AI failure." + dayNumber + " exception :" + e.getMessage());
+                log.warn("Serving fallback content for Day {} due to AI failure: {}", dayNumber, e.getMessage());
                 isFallback = true;
 
                 return new LessonContentDTO(
@@ -70,6 +84,7 @@ public class LessonService {
                         "# Content Temporarily Unavailable\n\nPlease try refreshing the page.",
                         "ACTIVITY",
                         Map.of("instructions", "Review your notes for this topic and practice in your IDE."),
+                        true,
                         true
                 );
             }
@@ -82,6 +97,7 @@ public class LessonService {
                 dayPlan.getLessonContent(),
                 dayPlan.getTaskType(),
                 aiService.parseTaskStringToMap(dayPlan.getTaskData()),
+                isFallback,
                 isFallback
         );
     }

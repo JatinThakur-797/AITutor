@@ -4,10 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import java.util.List;
 
-/**
- * Keep snake_case @JsonProperty for AI JSON mapping,
- * but Java fields are camelCase (clean code standard).
- */
 @Data
 public class RoadmapResponse {
 
@@ -20,6 +16,9 @@ public class RoadmapResponse {
     private int endDay;
 
     private List<DayPlanDTO> roadmap;
+
+    private Boolean degraded = false;
+    private String message;
 
     @Data
     public static class DayPlanDTO {

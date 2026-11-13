@@ -8,10 +8,10 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class LessonResponse {
 
-    // ✅ FIX: field is now "lesson" (matches new prompt JSON structure)
     private String lesson;
-
     private TaskDTO task;
+    private Boolean degraded = false;
+    private String message;
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -12,6 +12,8 @@ public class QuizResponse {
     private String goal;
     private String level_assessed;
     private java.util.List<Question> quiz;
+    private Boolean degraded = false;
+    private String message;
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -19,7 +21,7 @@ public class QuizResponse {
         private int id;
         private String question;
         private String difficulty;
-        private Map<String, String> options;   // 🔥 KEY FIX
+        private Map<String, String> options;   // KEY FIX
         private String correct_answer;
         private String concept;
     }
