@@ -5,6 +5,22 @@ export default function TaskPhase({ taskType, taskData, onSuccess, onBack }) {
     const [selectedOpt, setSelectedOpt] = useState('');
     const [error, setError] = useState(false);
 
+    if (!taskData) {
+        return (
+            <div className="min-h-screen bg-[#0e1117] text-white flex flex-col items-center justify-center p-6">
+                <div className="max-w-md w-full bg-[#1c1e26] border border-[#2e303e] rounded p-8 text-center">
+                    <h2 className="text-base font-semibold mb-2">Task details unavailable</h2>
+                    <p className="text-xs text-zinc-400 mb-6">
+                        No exercise content was provided for this lesson day.
+                    </p>
+                    <button onClick={onBack} className="replit-btn-secondary px-6 py-2.5 text-xs uppercase tracking-wider replit-font-mono cursor-pointer">
+                        Back to Lesson
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     const checkAnswer = () => {
         if (taskType === 'QUIZ') {
             if (selectedOpt === taskData.correct) onSuccess();

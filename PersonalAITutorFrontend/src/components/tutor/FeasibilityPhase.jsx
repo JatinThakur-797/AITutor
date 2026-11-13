@@ -1,4 +1,23 @@
-export default function FeasibilityPhase({ feasibility, report, totalQuestions, onGenerate, loading }) {
+export default function FeasibilityPhase({ feasibility, report, totalQuestions, onGenerate, loading, onRetry }) {
+    if (!feasibility || !report) {
+        return (
+            <div className="min-h-screen w-full flex items-center justify-center bg-[#0e1117] p-6 text-zinc-300">
+                <div className="max-w-md w-full rounded border border-[#2e303e] bg-[#1c1e26] p-8 text-center">
+                    <h2 className="text-base font-semibold text-white mb-2">Feasibility analysis pending</h2>
+                    <p className="text-xs text-zinc-400 mb-6">
+                        No report data was found to calculate your timeline feasibility.
+                    </p>
+                    <button
+                        onClick={onRetry || onGenerate}
+                        className="replit-btn-primary px-6 py-2.5 text-xs uppercase tracking-wider replit-font-mono cursor-pointer"
+                    >
+                        Retry Feasibility Check
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     const feasible = feasibility?.isFeasible;
     const scorePercent = Math.round((report.score / totalQuestions) * 100);
 

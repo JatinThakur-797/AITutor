@@ -17,6 +17,35 @@ export default function RoadmapPhase({
     roadmap, formData, feasibility, loadedDays,
     onLoadMore, loading, onMarkComplete, goalId, onStartLesson, onBackToDashboard
 }) {
+    if (!roadmap || roadmap.length === 0) {
+        return (
+            <div className="min-h-screen w-full flex items-center justify-center bg-[#0e1117] p-6 text-zinc-300">
+                <div className="max-w-md w-full rounded border border-[#2e303e] bg-[#1c1e26] p-8 text-center">
+                    <h2 className="text-base font-semibold text-white mb-2">Roadmap not yet loaded</h2>
+                    <p className="text-xs text-zinc-400 mb-6">
+                        No learning roadmap days were found for this workspace.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                        {onBackToDashboard && (
+                            <button
+                                onClick={onBackToDashboard}
+                                className="replit-btn-secondary px-4 py-2 text-xs uppercase tracking-wider replit-font-mono cursor-pointer"
+                            >
+                                Back
+                            </button>
+                        )}
+                        <button
+                            onClick={onLoadMore}
+                            className="replit-btn-primary px-4 py-2 text-xs uppercase tracking-wider replit-font-mono cursor-pointer"
+                        >
+                            Retry Loading
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const [selectedDay, setSelectedDay] = useState(roadmap[0]?.day || 1);
     const [completing, setCompleting] = useState(null);
 
