@@ -3,9 +3,11 @@
 > An intelligent, adaptive learning platform that takes any topic you want to learn, runs a diagnostic assessment, generates a realistic study plan, and teaches it to you with AI-generated interactive lessons — all powered by a Spring Boot microservice backend and a sleek React frontend.
 
 [![Java](https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.8-brightgreen?style=flat-square&logo=spring)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.4%20%2F%203.5.8-brightgreen?style=flat-square&logo=spring)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-7-purple?style=flat-square&logo=vite)](https://vite.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Groq](https://img.shields.io/badge/LLM-Groq%20%2F%20Llama%203.3-red?style=flat-square)](https://groq.com/)
 [![MySQL](https://img.shields.io/badge/Database-MySQL%208-blue?style=flat-square&logo=mysql)](https://mysql.com/)
 
@@ -184,30 +186,35 @@ The user specifies:
 - **Google OAuth App** credentials
 - **GitHub OAuth App** credentials
 
-### 1. Database Setup
+### 1. Environment Configuration
 
+Copy the root template and populate required secrets:
+
+```bash
+cp .env.example .env
+```
+
+Ensure MySQL credentials, `APP_JWT_SECRET` (generate with `openssl rand -base64 48`), and `OPENAI_API_KEY` (Groq API key) are populated in `.env`.
+
+### 2. Run with Docker Compose (Recommended)
+
+```bash
+docker compose up -d
+```
+
+This boots MySQL, Redis, all Spring Boot microservices, and the React frontend.
+
+### 3. Alternative: Manual Local Run (5-Terminal Fallback)
+
+If running directly on your host:
+
+1. **Database Setup**:
 ```sql
 CREATE DATABASE user_auth;
 CREATE DATABASE ai_tutor;
 ```
 
-### 2. Backend Configuration
-
-Each service uses environment variables. The easiest approach is to set them as system environment variables, or pass them with `-D` flags to Maven:
-
-```powershell
-# Windows PowerShell — set for current session
-$env:MYSQL_PASSWORD = "your_password"
-$env:APP_JWT_SECRET = "your_min_32_char_jwt_secret"
-$env:OPENAI_API_KEY = "gsk_your_groq_key"
-$env:GOOGLE_CLIENT_ID = "your_google_id"
-$env:GOOGLE_CLIENT_SECRET = "your_google_secret"
-$env:GITHUB_CLIENT_ID = "your_github_id"
-$env:GITHUB_CLIENT_SECRET = "your_github_secret"
-```
-
-### 3. Start Backend Services (In This Order)
-
+2. **Start Backend Services (In This Order)**:
 ```bash
 # Terminal 1 — Eureka Registry (must start first)
 cd PersonalAITutorBackend/ServiceRegistry
@@ -230,11 +237,9 @@ cd PersonalAITutorBackend/ApiGateway
 mvn spring-boot:run
 ```
 
-### 4. Start Frontend
-
+3. **Start Frontend**:
 ```bash
 cd PersonalAITutorFrontend
-cp .env.example .env.local   # Edit with your values
 npm install
 npm run dev
 # → http://localhost:5173
@@ -322,21 +327,18 @@ Every request through the gateway passes through `AuthenticationFilter`, which:
 ### ✅ Completed Features
 - [x] Full authentication system: email/password + Google OAuth2 + GitHub OAuth2
 - [x] JWT access + refresh token rotation with HttpOnly cookie
-- [x] Full Eureka service registry + Spring Cloud Gateway routing
-- [x] AI diagnostic quiz (10 questions, progressive difficulty)
-- [x] AI feasibility check with timeline correction
-- [x] Day-by-day AI roadmap with sequential unlock system
-- [x] JIT AI lesson generation with markdown rendering
-- [x] Lesson ToC sidebar with smooth auto-scroll
-- [x] Mermaid diagram rendering inside lessons
-- [x] Syntax-highlighted code blocks in lessons
-- [x] Floating AI chat mentor scoped to lesson context
+- [x] Full Eureka service registry + Spring Cloud Gateway routing with CircuitBreaker fallbacks
+- [x] Distributed Redis token bucket rate limiting on API Gateway with metrics
+- [x] Graceful AI generator degradation with Feign fallback factories (quiz, feasibility, roadmap, lesson)
+- [x] Flat light editorial design system (stone/amber/teal, zero purple/gradients, zero UI chrome emojis)
+- [x] Resilient frontend error boundaries, service health polling banner, and automatic retry handling
+- [x] Monaco code editor integrated into task phase with in-browser sandboxed JavaScript execution
+- [x] Self-assessment radio options with local storage persistence
+- [x] AI diagnostic quiz, feasibility check, roadmap, and JIT lessons with Mermaid diagrams
+- [x] Comprehensive backend and frontend automated test coverage
 
 ### 🚧 In Progress / Known Gaps
-- [ ] **Monaco IDE Task Integration**: `CodeEditor.jsx` exists but needs wiring into `TaskPhase.jsx`
 - [ ] **Multi-Goal Roadmap Isolation**: API endpoints should receive `goalId` explicitly instead of querying "latest goal" — prevents data overlap for users with multiple goals
-- [ ] **Semicolon Strip Bug**: `AIService.java` contains `.replaceAll(";", "")` which strips semicolons from code snippets in lessons — needs proper Markdown-aware parsing
-- [ ] **Token Refresh NPE**: `User-Service` token rotation throws `NullPointerException` when refresh is called without a valid refresh cookie in the request
 
 ---
 
@@ -350,4 +352,4 @@ Every request through the gateway passes through `AuthenticationFilter`, which:
 
 ## 📄 License
 
-This project is for personal/educational use. See individual service directories for more details.
+This project is licensed under the [MIT License](LICENSE).
