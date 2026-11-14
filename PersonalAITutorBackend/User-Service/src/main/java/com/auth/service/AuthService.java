@@ -12,13 +12,19 @@ import com.auth.security.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final TokenService tokenService;
@@ -26,17 +32,14 @@ public class AuthService {
 
     public void registerUser(SignUpRequest request){
         if(userRepository.findByEmail(request.getEmail()).isPresent()){
-            System.out.println(request);
-            System.out.println("Email already in use");
+            log.warn("Registration rejected: email already in use: {}", request.getEmail());
             throw new AuthException("Email already in use");
         }
-        System.out.println(request);
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setName(request.getName());
         userRepository.save(user);
-        System.out.println(user);
     }
     public AuthResponse login(LoginRequest request, HttpServletResponse response){
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AuthException("Invalid email or password"));
@@ -45,16 +48,16 @@ public class AuthService {
         }
         var tokens = tokenService.createTokens(user);
         tokenService.setRefreshCookie(response, tokens.refreshToken());
-        System.out.println("End of AuthService" + tokens.refreshToken() );
         return new AuthResponse(tokens.accessToken(), new UserResponse(user));
     }
     public AuthResponse refreshToken(HttpServletRequest request, HttpServletResponse response){
         String oldRefresh = tokenService.readRefreshCookie(request);
-        System.out.println(oldRefresh);
-        var maybe = tokenService.refresh(oldRefresh).orElseThrow(() -> new AuthException("Invalid refresh token"));
+        if (oldRefresh == null || oldRefresh.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token missing");
+        }
+        var maybe = tokenService.refresh(oldRefresh).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
         tokenService.setRefreshCookie(response, maybe.refreshToken());
         return new AuthResponse(maybe.accessToken(), null);
-
     }
 
     public void logout(HttpServletRequest request, HttpServletResponse response){

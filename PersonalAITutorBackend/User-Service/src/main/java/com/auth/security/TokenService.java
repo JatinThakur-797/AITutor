@@ -51,6 +51,9 @@ public class TokenService {
 
     @Transactional
     public Optional<TokenPair> refresh(String providedRefreshToken) {
+        if (providedRefreshToken == null || providedRefreshToken.isBlank()) {
+            return Optional.empty();
+        }
         String hashed = hashToken(providedRefreshToken);
         Optional<RefreshToken> found = refreshTokenRepository.findByTokenHash(hashed);
         if (found.isEmpty()) return Optional.empty();
@@ -79,7 +82,7 @@ public class TokenService {
 
     @Transactional
     public void revokeByToken(String providedRefreshToken) {
-        if (providedRefreshToken == null) return;
+        if (providedRefreshToken == null || providedRefreshToken.isBlank()) return;
         String hashed = hashToken(providedRefreshToken);
         refreshTokenRepository.findByTokenHash(hashed).ifPresent(rt -> {
             rt.setRevoked(true);
@@ -127,7 +130,6 @@ public class TokenService {
         if (request.getCookies() == null) return null;
         for (Cookie c : request.getCookies()) {
             if ("refresh".equals(c.getName())){
-                System.out.println(c.getValue());
                 return c.getValue();
             }
         }
