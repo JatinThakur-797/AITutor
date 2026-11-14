@@ -16,7 +16,7 @@ public class UserController {
 
     private final UserService userService;
 
-    @GetMapping("/me")
+    @GetMapping("/profile")
     public ResponseEntity<?> getCurrentUser(Authentication authentication){
         System.out.println("Call getCurrentUser method");
         return ResponseEntity.ok(userService.getCurrentUser(authentication));

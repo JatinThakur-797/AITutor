@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-aitutor}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  service-registry:
+    build: ./PersonalAITutorBackend/ServiceRegistry
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build: ./PersonalAITutorBackend/ApiGateway
+    ports:
+      - "8080:8080"
+    env_file: .env
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  user-service:
+    build: ./PersonalAITutorBackend/User-Service
+    env_file: .env
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  learning-path-service:
+    build: ./PersonalAITutorBackend/LearningPathGenerator
+    env_file: .env
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  ai-service:
+    build: ./PersonalAITutorBackend/AIService
+    env_file: .env
+    depends_on:
+      service-registry:
+        condition: service_healthy
+
+  frontend:
+    build: ./PersonalAITutorFrontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
+volumes:
+  pgdata:

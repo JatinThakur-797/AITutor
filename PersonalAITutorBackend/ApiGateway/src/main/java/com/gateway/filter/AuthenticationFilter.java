@@ -1,6 +1,7 @@
 package com.gateway.filter;
 
 import com.gateway.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,14 +18,15 @@ import org.springframework.stereotype.Component;
 public class AuthenticationFilter extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
     private static final Logger log = LoggerFactory.getLogger(AuthenticationFilter.class);
 
-    @Autowired
-    private JwtUtil jwtUtil;
+
+    private final JwtUtil jwtUtil;
 
     @Value("${app.gateway.secret}")
     private String gatewaySecret;
 
-    public AuthenticationFilter() {
+    public AuthenticationFilter(JwtUtil jwtUtil) {
         super(Config.class);
+        this.jwtUtil = jwtUtil;
     }
 
     @Override

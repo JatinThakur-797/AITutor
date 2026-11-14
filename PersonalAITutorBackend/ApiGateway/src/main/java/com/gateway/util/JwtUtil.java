@@ -3,6 +3,7 @@ package com.gateway.util;
 import io.jsonwebtoken.Jwts;
 
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 
@@ -10,7 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 @Component
 public class JwtUtil {
-    public static final String SECRET = "sajdflksaiewakfjsdklajflksacnasnfjksahsafsdakjfweiroi";
+    @Value("${app.jwt.secret}")
+    private String SECRET;
     public void validateToken(String token){
         Jwts.parserBuilder().setSigningKey(getSignKey()).build().parseClaimsJws(token);
     }
