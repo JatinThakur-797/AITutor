@@ -268,8 +268,11 @@ export default function LessonPhase({ goalId, dayNumber, onBack, onComplete }) {
             <TaskPhase
                 taskType={lessonData.taskType}
                 taskData={lessonData.taskData}
-                onSuccess={() => {
-                    onComplete(goalId, dayNumber);
+                goalId={goalId}
+                dayNumber={dayNumber}
+                goalTitle={lessonData.title || ""}
+                onSuccess={(assessment) => {
+                    onComplete(goalId, dayNumber, assessment);
                 }}
                 onBack={() => setShowTask(false)}
             />

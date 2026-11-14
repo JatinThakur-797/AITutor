@@ -1,94 +1,222 @@
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState } from "react";
+import CodeEditor from "./CodeEditor";
 
-export default function TaskPhase({ taskType, taskData, onSuccess, onBack }) {
-    const [selectedOpt, setSelectedOpt] = useState('');
+export default function TaskPhase({
+    taskType,
+    taskData,
+    onSuccess,
+    onBack,
+    goalId,
+    dayNumber,
+    goalTitle = "",
+}) {
+    const [selectedOpt, setSelectedOpt] = useState("");
     const [error, setError] = useState(false);
+    const [assessment, setAssessment] = useState("Got it");
+
+    const storageKey = `task:${goalId || "default"}:${dayNumber || "0"}`;
 
     if (!taskData) {
         return (
-            <div className="min-h-screen bg-[#0e1117] text-white flex flex-col items-center justify-center p-6">
-                <div className="max-w-md w-full bg-[#1c1e26] border border-[#2e303e] rounded p-8 text-center">
-                    <h2 className="text-base font-semibold mb-2">Task details unavailable</h2>
-                    <p className="text-xs text-zinc-400 mb-6">
+            <div className="min-h-screen bg-[#FAFAF9] text-[#1C1917] flex flex-col items-center justify-center p-6 font-sans">
+                <div className="max-w-md w-full bg-white border border-[#E7E5E4] rounded p-6 text-center">
+                    <h2 className="text-base font-semibold mb-2 text-[#1C1917]">Task details unavailable</h2>
+                    <p className="text-xs text-[#78716C] mb-6">
                         No exercise content was provided for this lesson day.
                     </p>
-                    <button onClick={onBack} className="replit-btn-secondary px-6 py-2.5 text-xs uppercase tracking-wider replit-font-mono cursor-pointer">
-                        Back to Lesson
+                    <button
+                        onClick={onBack}
+                        className="px-4 py-2 text-xs font-medium rounded border border-[#E7E5E4] bg-white text-[#1C1917] hover:bg-[#F5F5F4] transition-colors cursor-pointer"
+                    >
+                        Back to lesson
                     </button>
                 </div>
             </div>
         );
     }
 
-    const checkAnswer = () => {
-        if (taskType === 'QUIZ') {
-            if (selectedOpt === taskData.correct) onSuccess();
-            else setError(true);
+    const handleSubmit = () => {
+        if (taskType === "QUIZ") {
+            if (selectedOpt === taskData.correct) {
+                if (typeof window !== "undefined") {
+                    localStorage.removeItem(storageKey);
+                }
+                onSuccess({ assessment });
+            } else {
+                setError(true);
+            }
         } else {
-            onSuccess();
+            if (typeof window !== "undefined") {
+                localStorage.removeItem(storageKey);
+            }
+            onSuccess({ assessment });
         }
     };
 
+    const isQuiz = taskType === "QUIZ";
+
     return (
-        <div className="min-h-screen bg-[#0e1117] text-white flex flex-col items-center justify-center p-6">
-            <div className="max-w-2xl w-full bg-[#1c1e26] border border-[#2e303e] rounded p-8">
-                <button onClick={onBack} className="text-zinc-500 hover:text-zinc-200 mb-6 flex items-center gap-2 transition-colors text-xs uppercase replit-font-mono cursor-pointer">
-                    <ArrowLeft size={14} /> Back to Lesson
-                </button>
-
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-[#00f0ff]/20 bg-[#00f0ff]/5 mb-6">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] animate-pulse" />
-                    <span className="text-[10px] text-[#00f0ff] font-semibold tracking-wider uppercase replit-font-mono">KNOWLEDGE CHECK</span>
-                </div>
-
-                {taskType === 'QUIZ' && (
-                    <div>
-                        <h2 className="text-lg font-bold mb-6 text-zinc-100">{taskData?.question}</h2>
-                        <div className="space-y-2.5">
-                            {taskData?.options && Object.entries(taskData.options).map(([key, val]) => (
-                                <button key={key} onClick={() => { setSelectedOpt(key); setError(false); }}
-                                    className={`w-full text-left p-4 rounded border transition-all flex items-center gap-4 cursor-pointer ${
-                                        selectedOpt === key 
-                                            ? 'border-[#00f0ff] bg-[#00f0ff]/5' 
-                                            : 'border-[#2e303e] bg-[#0e1117] hover:border-zinc-600'
-                                    }`}>
-                                    <span className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 transition-all"
-                                        style={{
-                                            fontFamily: "'Geist Mono', monospace",
-                                            background: selectedOpt === key ? '#00f0ff' : '#2e303e',
-                                            color: selectedOpt === key ? '#0e1117' : '#c9d1d9',
-                                        }}>
-                                        {key}
-                                    </span>
-                                    <span className="text-sm font-medium text-zinc-300">{val}</span>
-                                </button>
-                            ))}
-                        </div>
-                        {error && <p className="text-rose-400 mt-4 text-xs font-semibold replit-font-mono">Incorrect answer. Review the lesson details and try again!</p>}
-                    </div>
-                )}
-
-                {taskType !== 'QUIZ' && (
-                    <div>
-                        <h2 className="text-lg font-bold mb-3 text-zinc-100">Practice Task</h2>
-                        <p className="text-zinc-400 text-sm mb-6 leading-relaxed">{taskData?.problem || taskData?.instructions}</p>
-                        {taskData?.starter_code && (
-                            <div className="bg-[#0e1117] p-5 rounded border border-[#2e303e] font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed mb-4">
-                                {taskData.starter_code}
-                            </div>
-                        )}
-                        <p className="text-xs text-zinc-500 replit-font-mono">Implement the solution in your local IDE, then submit below to complete this day.</p>
-                    </div>
-                )}
-
+        <div className="min-h-screen bg-[#FAFAF9] text-[#1C1917] flex flex-col p-6 font-sans">
+            {/* Top Navigation */}
+            <div className="max-w-6xl w-full mx-auto mb-6 flex items-center justify-between">
                 <button
-                    onClick={checkAnswer}
-                    disabled={taskType === 'QUIZ' && !selectedOpt}
-                    className="w-full mt-8 replit-btn-primary py-3 text-xs uppercase tracking-wider replit-font-mono flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+                    onClick={onBack}
+                    className="text-xs text-[#78716C] hover:text-[#1C1917] font-medium transition-colors cursor-pointer"
                 >
-                    <CheckCircle2 size={16} /> Submit & Complete Day
+                    &larr; Back to lesson
                 </button>
+                <span className="text-xs text-[#78716C] font-mono">
+                    Day {dayNumber || 1} &middot; Task Practice
+                </span>
+            </div>
+
+            <div className="max-w-6xl w-full mx-auto flex-1">
+                {isQuiz ? (
+                    /* Quiz Task Layout */
+                    <div className="max-w-2xl mx-auto bg-white border border-[#E7E5E4] rounded p-6">
+                        <div className="text-xs text-[#78716C] font-mono mb-2 uppercase">Knowledge check</div>
+                        <h2 className="text-lg font-semibold mb-6 text-[#1C1917]">
+                            {taskData.question}
+                        </h2>
+
+                        <div className="space-y-2 mb-6">
+                            {taskData.options &&
+                                Object.entries(taskData.options).map(([key, val]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => {
+                                            setSelectedOpt(key);
+                                            setError(false);
+                                        }}
+                                        className={`w-full text-left p-3.5 rounded border transition-all flex items-center gap-3 cursor-pointer ${
+                                            selectedOpt === key
+                                                ? "border-[#0F766E] bg-[#CCFBF1]/30"
+                                                : "border-[#E7E5E4] bg-white hover:bg-[#F5F5F4]"
+                                        }`}
+                                    >
+                                        <span
+                                            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-semibold shrink-0 ${
+                                                selectedOpt === key
+                                                    ? "bg-[#0F766E] text-white"
+                                                    : "bg-[#F5F5F4] text-[#1C1917]"
+                                            }`}
+                                        >
+                                            {key}
+                                        </span>
+                                        <span className="text-sm text-[#1C1917]">{val}</span>
+                                    </button>
+                                ))}
+                        </div>
+
+                        {error && (
+                            <p className="text-xs text-[#B91C1C] font-medium mb-4">
+                                Incorrect answer. Review the lesson details and try again.
+                            </p>
+                        )}
+
+                        {/* Self-assessment radios */}
+                        <div className="pt-4 border-t border-[#E7E5E4] mb-6">
+                            <label className="block text-xs font-medium text-[#78716C] mb-2 font-mono">
+                                How confident are you with this topic?
+                            </label>
+                            <div className="flex gap-4 text-xs">
+                                {["Got it", "Mostly", "Struggled"].map((opt) => (
+                                    <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="assessment"
+                                            value={opt}
+                                            checked={assessment === opt}
+                                            onChange={(e) => setAssessment(e.target.value)}
+                                            className="accent-[#0F766E]"
+                                        />
+                                        <span>{opt}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {assessment === "Struggled" && (
+                                <p className="text-xs text-[#B45309] mt-2 font-mono">We'll add a review day.</p>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!selectedOpt}
+                            className="w-full py-2.5 text-xs font-semibold rounded bg-[#0F766E] text-white hover:opacity-90 disabled:opacity-40 cursor-pointer transition-opacity"
+                        >
+                            Submit & complete day
+                        </button>
+                    </div>
+                ) : (
+                    /* Coding / Activity Split Layout: 40% Left, 60% Right */
+                    <div className="flex flex-col min-[900px]:flex-row gap-6 items-stretch">
+                        {/* Instructions panel left (40%) */}
+                        <div className="min-[900px]:w-[40%] bg-white border border-[#E7E5E4] rounded p-6 flex flex-col justify-between">
+                            <div>
+                                <div className="text-xs text-[#78716C] font-mono mb-1 uppercase">Practice Task</div>
+                                <h2 className="text-lg font-semibold text-[#1C1917] mb-3">
+                                    {taskData.title || "Implementation Exercise"}
+                                </h2>
+                                <p className="text-sm text-[#78716C] leading-relaxed mb-4">
+                                    {taskData.problem || taskData.instructions || "Write your solution in the editor."}
+                                </p>
+
+                                {taskData.expected_output && (
+                                    <div className="mb-4">
+                                        <div className="text-[11px] font-mono text-[#78716C] uppercase mb-1">
+                                            Expected Output
+                                        </div>
+                                        <pre className="p-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded text-xs font-mono text-[#1C1917] whitespace-pre-wrap">
+                                            {taskData.expected_output}
+                                        </pre>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Self assessment & submit */}
+                            <div className="pt-4 border-t border-[#E7E5E4] mt-6">
+                                <label className="block text-xs font-medium text-[#78716C] mb-2 font-mono">
+                                    Self-assessment
+                                </label>
+                                <div className="flex gap-4 text-xs mb-3">
+                                    {["Got it", "Mostly", "Struggled"].map((opt) => (
+                                        <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="assessment"
+                                                value={opt}
+                                                checked={assessment === opt}
+                                                onChange={(e) => setAssessment(e.target.value)}
+                                                className="accent-[#0F766E]"
+                                            />
+                                            <span>{opt}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                {assessment === "Struggled" && (
+                                    <p className="text-xs text-[#B45309] mb-3 font-mono">We'll add a review day.</p>
+                                )}
+
+                                <button
+                                    onClick={handleSubmit}
+                                    className="w-full py-2.5 text-xs font-semibold rounded bg-[#0F766E] text-white hover:opacity-90 transition-opacity cursor-pointer"
+                                >
+                                    Submit & complete day
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Editor right (60%) */}
+                        <div className="min-[900px]:w-[60%] flex flex-col">
+                            <CodeEditor
+                                initialCode={taskData.starter_code || ""}
+                                goalId={goalId}
+                                dayNumber={dayNumber}
+                                goal={goalTitle}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
