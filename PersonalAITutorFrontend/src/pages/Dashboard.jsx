@@ -95,8 +95,8 @@ export default function Dashboard() {
             {/* --- SIDEBAR (HISTORY) --- */}
             <aside className="w-64 bg-white shadow-xl flex flex-col z-10">
                 <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold text-blue-600 flex items-center gap-2">
-                        <span>🚀</span> My Paths
+                    <h2 className="text-xl font-bold text-teal-800 flex items-center gap-2">
+                        My Paths
                     </h2>
                 </div>
 

@@ -15,34 +15,31 @@ export default function Landing() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0e1117] text-zinc-300 flex flex-col">
+        <div className="min-h-screen bg-[#FAFAF9] text-[#1C1917] flex flex-col font-sans">
             {/* Navigation */}
-            <nav className="border-b border-[#2e303e] bg-[#1c1e26] px-8 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded flex items-center justify-center bg-[#0f62fe]">
-                        <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" />
-                        </svg>
-                    </div>
-                    <span className="text-white font-bold text-sm tracking-tight">PathAI</span>
+            <nav className="border-b border-[#E7E5E4] bg-white px-8 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold text-base tracking-tight text-[#1C1917]">PathAI</span>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
+                    <Link to="/" className="text-sm font-medium text-[#0F766E] pb-1 border-b-2 border-[#0F766E]">
+                        Home
+                    </Link>
                     {!loading && user ? (
                         <>
-                            <span className="text-xs text-zinc-500 replit-font-mono">Logged in as {user.name}</span>
-                            <Link to="/ai" className="replit-btn-primary px-4 py-2 text-xs uppercase tracking-wider replit-font-mono">
-                                Dashboard
+                            <span className="text-xs text-[#78716C]">Signed in as {user.name}</span>
+                            <Link to="/ai" className="px-3.5 py-1.5 text-xs font-medium rounded bg-[#0F766E] text-white hover:opacity-90 transition-opacity">
+                                Workspace
                             </Link>
                         </>
                     ) : (
                         <>
-                            <Link to="/login" className="text-xs text-zinc-400 hover:text-white uppercase tracking-wider replit-font-mono transition-colors">
-                                Login
+                            <Link to="/login" className="text-sm font-medium text-[#78716C] hover:text-[#1C1917] transition-colors">
+                                Log in
                             </Link>
-                            <Link to="/signup" className="replit-btn-primary px-4 py-2 text-xs uppercase tracking-wider replit-font-mono">
-                                Sign Up
+                            <Link to="/signup" className="px-3.5 py-1.5 text-xs font-medium rounded bg-[#0F766E] text-white hover:opacity-90 transition-opacity">
+                                Sign up
                             </Link>
                         </>
                     )}
@@ -51,77 +48,72 @@ export default function Landing() {
 
             {/* Hero Section */}
             <header className="flex-1 flex flex-col items-center justify-center text-center px-4 py-16 max-w-4xl mx-auto">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-[#00f0ff]/20 bg-[#00f0ff]/5 mb-6">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] animate-pulse" />
-                    <span className="text-[10px] text-[#00f0ff] font-semibold tracking-wider uppercase replit-font-mono">Now in Developer Beta</span>
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded border border-[#E7E5E4] bg-white mb-6">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0F766E]" />
+                    <span className="text-xs text-[#78716C] font-mono">Developer Beta</span>
                 </div>
                 
-                <h1 className="text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-none mb-6">
-                    The AI-Powered <br />
-                    <span className="text-[#00f0ff]">Developer Tutor</span>
+                <h1 className="text-4xl md:text-5xl font-semibold text-[#1C1917] tracking-tight mb-4">
+                    The focused AI tutor for developers
                 </h1>
                 
-                <p className="text-zinc-400 text-base md:text-lg max-w-2xl mb-8 leading-relaxed">
-                    Skip generic courses. Provide your career goals and daily study limits to construct a personalized workspace with assessment quizzes, markdown syllabus lessons, and sandbox practice editors.
+                <p className="text-[#78716C] text-base md:text-lg max-w-2xl mb-8 leading-relaxed">
+                    Set a technical goal and your daily study hours. PathAI calibrates your knowledge with a diagnostic quiz, plans a day-by-day roadmap, and generates interactive lessons with live code execution.
                 </p>
 
-                <div className="flex flex-wrap gap-4 justify-center mb-16">
+                <div className="flex flex-wrap gap-3 justify-center mb-16">
                     <button
                         onClick={handleGetStarted}
-                        className="replit-btn-primary px-8 py-3.5 text-xs font-semibold uppercase tracking-wider replit-font-mono cursor-pointer"
+                        className="px-6 py-2.5 text-sm font-medium rounded bg-[#0F766E] text-white hover:opacity-90 transition-opacity cursor-pointer"
                     >
-                        Launch Workspace →
+                        Launch workspace
                     </button>
                     <a
                         href="https://github.com"
                         target="_blank"
                         rel="noreferrer"
-                        className="replit-btn-secondary px-8 py-3.5 text-xs font-semibold uppercase tracking-wider replit-font-mono cursor-pointer flex items-center gap-2"
+                        className="px-6 py-2.5 text-sm font-medium rounded border border-[#E7E5E4] bg-white text-[#1C1917] hover:bg-[#F5F5F4] transition-colors cursor-pointer"
                     >
-                        Star on GitHub
+                        View repository
                     </a>
                 </div>
 
                 {/* Features Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full text-left">
-                    <div className="p-6 rounded border border-[#2e303e] bg-[#1c1e26]">
-                        <div className="text-[#00f0ff] text-lg mb-2">⚡</div>
-                        <h3 className="text-white font-bold text-sm uppercase tracking-wider replit-font-mono mb-2">AI Diagnostics</h3>
-                        <p className="text-zinc-500 text-xs leading-relaxed">
-                            Calibrate study levels automatically. Complete a progressive 10-question evaluation check to set your roadmap baseline.
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full text-left">
+                    <div className="p-5 rounded border border-[#E7E5E4] bg-white">
+                        <h2 className="text-sm font-semibold text-[#1C1917] mb-1.5">Skill Calibration</h2>
+                        <p className="text-[#78716C] text-xs leading-relaxed">
+                            Adaptive 10-question evaluations accurately measure baseline proficiency and adjust lesson depth.
                         </p>
                     </div>
 
-                    <div className="p-6 rounded border border-[#2e303e] bg-[#1c1e26]">
-                        <div className="text-[#00f0ff] text-lg mb-2">🗺️</div>
-                        <h3 className="text-white font-bold text-sm uppercase tracking-wider replit-font-mono mb-2">Adaptive Roadmaps</h3>
-                        <p className="text-zinc-500 text-xs leading-relaxed">
-                            Structured chunking paths generated day-by-day. Calibrated directly to match your available study hours.
+                    <div className="p-5 rounded border border-[#E7E5E4] bg-white">
+                        <h2 className="text-sm font-semibold text-[#1C1917] mb-1.5">Sequential Roadmaps</h2>
+                        <p className="text-[#78716C] text-xs leading-relaxed">
+                            Paced, modular daily schedules calculated directly from your target timeline and available study hours.
                         </p>
                     </div>
 
-                    <div className="p-6 rounded border border-[#2e303e] bg-[#1c1e26]">
-                        <div className="text-[#00f0ff] text-lg mb-2">💻</div>
-                        <h3 className="text-white font-bold text-sm uppercase tracking-wider replit-font-mono mb-2">Monaco Sandbox</h3>
-                        <p className="text-zinc-500 text-xs leading-relaxed">
-                            Integrated code workspace to validate files and practice tasks without context-switching to local setups.
+                    <div className="p-5 rounded border border-[#E7E5E4] bg-white">
+                        <h2 className="text-sm font-semibold text-[#1C1917] mb-1.5">Monaco Playground</h2>
+                        <p className="text-[#78716C] text-xs leading-relaxed">
+                            Practice real problems inside an integrated editor with in-browser execution and syntax checks.
                         </p>
                     </div>
 
-                    <div className="p-6 rounded border border-[#2e303e] bg-[#1c1e26]">
-                        <div className="text-[#00f0ff] text-lg mb-2">💬</div>
-                        <h3 className="text-white font-bold text-sm uppercase tracking-wider replit-font-mono mb-2">AI Coding Assistant</h3>
-                        <p className="text-zinc-500 text-xs leading-relaxed">
-                            Have questions about a syllabus topic? Consult our floating workspace chat mentor for answers.
+                    <div className="p-5 rounded border border-[#E7E5E4] bg-white">
+                        <h2 className="text-sm font-semibold text-[#1C1917] mb-1.5">Contextual AI Mentor</h2>
+                        <p className="text-[#78716C] text-xs leading-relaxed">
+                            Ask specific questions about any topic or code block right inside your current lesson reader.
                         </p>
                     </div>
                 </div>
             </header>
 
             {/* Footer */}
-            <footer className="border-t border-[#2e303e] bg-[#1c1e26] py-6 px-8 text-center">
-                <span className="text-[10px] text-zinc-600 replit-font-mono uppercase tracking-wider">
-                    PathAI © {new Date().getFullYear()} · Built for developers
+            <footer className="border-t border-[#E7E5E4] bg-white py-4 px-8 text-center">
+                <span className="text-xs text-[#78716C] font-mono">
+                    PathAI &middot; Built for developers
                 </span>
             </footer>
         </div>

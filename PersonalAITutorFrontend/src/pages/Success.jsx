@@ -12,11 +12,16 @@ export default function Success() {
 
         if (token) {
             localStorage.setItem("access_token", decodeURIComponent(token));
-            loadUser();
-            // Aligning routing to /ai so OAuth behaves consistently with password login
-            navigate("/ai");
+            const syncUserAndProceed = async () => {
+                try {
+                    await loadUser();
+                } finally {
+                    navigate("/ai", { replace: true });
+                }
+            };
+            syncUserAndProceed();
         } else {
-            navigate("/login");
+            navigate("/login", { replace: true });
         }
     }, [searchParams, navigate, loadUser]);
 

@@ -1,10 +1,11 @@
 import { useContext, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { signup } from "../api/authApi";
 import { AuthContext } from "../auth/AuthContext";
 
 export default function Signup() {
     const { user, loading } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [pass, setPass] = useState("");
@@ -32,8 +33,7 @@ export default function Signup() {
         e.preventDefault();
         try {
             await signup({ name, email, password: pass });
-            alert("Signup successful");
-            window.location.href = "/login";
+            navigate("/login");
         } catch (error) {
             console.error(error.response);
             const errorMessage = error.response?.data?.message || "Signup Failed. Please try again.";
