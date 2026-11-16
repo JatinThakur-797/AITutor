@@ -13,7 +13,7 @@ public class SecurityInterceptor implements HandlerInterceptor {
     private String gatewaySecret;
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-       String secretHeader = request.getHeader("X-Gateway-Secret");
+        String secretHeader = request.getHeader("X-Gateway-Secret");
        if(secretHeader==null || !secretHeader.equals(gatewaySecret) ){
            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
            response.getWriter().write("Access Denied : You must go through the API Gateway");

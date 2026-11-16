@@ -1,16 +1,20 @@
 package com.path.config;
 
 import feign.RequestInterceptor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class FeignConfig {
+    @Value("${app.internal.secret}")
+    private String gatewaySecret;
     @Bean
     public RequestInterceptor requestInterceptor() {
         return requestTemplate -> {
+            System.out.println(gatewaySecret);
             // We verify ourselves to the AI Service
-            requestTemplate.header("X-Gateway-Secret", "Jatin@MicroserviceResult");
+            requestTemplate.header("X-Gateway-Secret", gatewaySecret);
         };
     }
 }

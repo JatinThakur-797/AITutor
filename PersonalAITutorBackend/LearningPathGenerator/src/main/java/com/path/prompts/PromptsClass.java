@@ -230,73 +230,98 @@ RETURN ONLY VALID JSON. NO EXTRA TEXT. NO MARKDOWN.
                 .replace("\r", "");
     }
     // Add to PromptsClass.java
-    public String buildLessonPrompt(String mainTopic, List<String> subTopics, String currentLevel, String overallGoal) {
-        String subs = String.join(", ", subTopics);
-        String subsNumbered = "";
-        for (int i = 0; i < subTopics.size(); i++) {
-            subsNumbered += (i + 1) + ". " + subTopics.get(i) + "\n";
+    public String buildLessonPrompt(
+            String mainTopic,
+            List<String> subTopics,
+            String currentLevel,
+            String overallGoal
+    ) {
+        String safeLevel = currentLevel == null ? "Beginner" : currentLevel;
+        String safeGoal = overallGoal == null ? "General programming" : overallGoal;
+        String safeTopic = mainTopic == null ? "General Fundamentals" : mainTopic;
+
+        StringBuilder numberedTopics = new StringBuilder();
+        if (subTopics != null) {
+            for (int i = 0; i < subTopics.size(); i++) {
+                numberedTopics.append(i + 1)
+                        .append(". ")
+                        .append(subTopics.get(i))
+                        .append("\n");
+            }
         }
 
         return """
-You are a Senior Developer writing a premium technical lesson for a %s level student.
- 
-LEARNING PROGRAM GOAL: %s
-TOPIC: %s
-SUBTOPICS TO COVER:
-%s
- 
-LESSON REQUIREMENTS:
-- Write a highly detailed, comprehensive, and exhaustive markdown lesson covering ALL subtopics as ## headers. The total lesson content MUST be at least 800–1200 words to provide deep coverage.
-- The lesson content, all code examples, and all questions MUST be strictly oriented around the user's LEARNING PROGRAM GOAL (%s). If the goal specifies a certain language (e.g. Java, Python, C++, JavaScript), you MUST use that language.
-- CRITICAL WARNING: Java and JavaScript are entirely different languages! If the goal is "Java" (or contains "Java"), you MUST write strict Java syntax (e.g., class declarations, typed variables, System.out.println). NEVER use JavaScript syntax (e.g., let, const, var, function, console.log) when the goal is Java.
-- Include multiple practical, production-grade code examples with proper syntax, and explain the code lines in detail.
-- Ensure the content has enough depth, theory, and exercises to occupy the user's daily study allocation.
-- For flow concepts, include a mermaid diagram (use ```mermaid blocks starting with graph TD or flowchart TD)
-- Keep it educational, clear, and engaging
- 
-TASK REQUIREMENTS:
-- Create ONE assessment task (type: QUIZ, CODING, or ACTIVITY)
- 
-RETURN ONLY THIS EXACT JSON STRUCTURE. NO TEXT BEFORE OR AFTER.
-The "lesson" value must be a valid JSON string (escape newlines as \\n, quotes as \\"):
- 
-{
-  "lesson": "# %s\\n\\nLesson content here with \\n for newlines...",
-  "task": {
-    "type": "QUIZ | CODING | ACTIVITY",
-    "content": {
-      // IF type is QUIZ:
-      // "question": "string",
-      // "options": { "A": "string", "B": "string", "C": "string", "D": "string" },
-      // "correct": "A",
-      // "explanation": "string"
-      
-      // IF type is CODING:
-      // "instructions": "string",
-      // "starter_code": "string",
-      // "expected_output": "string"
-      
-      // IF type is ACTIVITY:
-      // "instructions": "string"
-    }
-  }
-}
+        You are a senior software engineer and technical educator.
 
-- Mermaid diagrams MUST follow strict syntax constraints:
-  - ALWAYS start the mermaid block with a declaration (e.g., `graph TD` or `flowchart TD`) on the first line.
-  - ALWAYS wrap node text and link text in double quotes ("") to prevent syntax errors.
-  - NEVER use unquoted parentheses (), brackets [], or curly braces {} inside node text.
-  - ✅ VALID: 
-    graph TD
-    A["Start Program"] -->|"Read (Input)"| B{"Is Valid?"}
-  - ❌ INVALID: 
-    A[Start Program] -->|Read (Input)| B{Is Valid?}
-  - ALWAYS use standard newline characters (\\n) to separate every node and link.
-IMPORTANT:
-- The "lesson" field must be a proper JSON string — escape ALL newlines as \\n
-- Do NOT use triple backticks around the entire response
-- The JSON must be parseable
-""".formatted(currentLevel, overallGoal, mainTopic, subsNumbered, overallGoal, mainTopic);
+        STUDENT LEVEL: %s
+        LEARNING GOAL: %s
+        MAIN TOPIC: %s
+
+        SUBTOPICS:
+        %s
+
+        PART 1 — LESSON
+
+        Write a detailed, practical Markdown lesson for this student.
+
+        Requirements:
+        1. Cover every supplied subtopic using Markdown headings.
+        2. Target approximately 700–900 words. Prioritize accuracy over length.
+        3. Include explanations, practical examples, and code where relevant.
+        4. Match all code examples to the learning goal's programming language.
+        5. If the goal involves Java, use Java syntax only, not JavaScript.
+        6. Explain important code examples.
+        7. Include a Mermaid diagram when it genuinely helps explain a flow.
+        8. Include practical examples relevant to real software development.
+        9. Do not put the lesson inside JSON.
+        10. Do not escape Markdown quotes or newlines.
+        11. Do not write anything outside the required section markers.
+
+        PART 2 — ASSESSMENT
+
+        Create exactly one useful assessment task:
+        QUIZ, CODING, or ACTIVITY.
+
+        Return the complete response using exactly this structure:
+
+        <LESSON>
+        # Lesson title
+
+        Write the complete Markdown lesson here.
+        </LESSON>
+
+        <TASK>
+        {
+          "type": "QUIZ",
+          "content": {
+            "question": "Question text",
+            "options": {
+              "A": "Option A",
+              "B": "Option B",
+              "C": "Option C",
+              "D": "Option D"
+            },
+            "correct": "A",
+            "explanation": "Explanation"
+          }
+        }
+        </TASK>
+
+        TASK RULES:
+        - TASK must contain one valid JSON object.
+        - Its type must be QUIZ, CODING, or ACTIVITY.
+        - For QUIZ, include question, options, correct, and explanation.
+        - For CODING, include instructions, starter_code, and expected_output.
+        - For ACTIVITY, include instructions.
+        - Escape quotation marks inside TASK JSON strings correctly.
+        - Keep TASK JSON compact.
+        - Do not put Markdown code fences around the complete response.
+        """.formatted(
+                safeLevel,
+                safeGoal,
+                safeTopic,
+                numberedTopics
+        );
     }
 
     public String buildChatPrompt(String message, String lessonTitle, String lessonContent) {
