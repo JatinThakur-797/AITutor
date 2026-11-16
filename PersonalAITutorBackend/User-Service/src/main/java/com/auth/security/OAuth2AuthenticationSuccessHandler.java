@@ -5,7 +5,6 @@ import com.auth.entities.UserSocialAccount;
 import com.auth.repository.UserRepository;
 import com.auth.repository.UserSocialRepository;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,11 +27,11 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private final UserSocialRepository userSocialRepository;
     private final String frontendBaseUrl;
 
-    public OAuth2AuthenticationSuccessHandler(TokenService tokenService,
-                                              UserRepository userRepository,
-                                              UserSocialRepository userSocialRepository,
-                                              @Value("${app.base-url}") String frontendBaseUrl) {
-
+    public OAuth2AuthenticationSuccessHandler(
+            TokenService tokenService,
+            UserRepository userRepository,
+            UserSocialRepository userSocialRepository,
+            @Value("${app.base-url}") String frontendBaseUrl) {
         this.tokenService = tokenService;
         this.userRepository = userRepository;
         this.userSocialRepository = userSocialRepository;
@@ -41,10 +40,10 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     }
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request,
-                                        HttpServletResponse response,
-                                        Authentication authentication)
-            throws IOException, ServletException {
+    public void onAuthenticationSuccess(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication) throws IOException, ServletException {
 
         OAuth2User oauth = (OAuth2User) authentication.getPrincipal();
         Map<String, Object> attrs = oauth.getAttributes();
@@ -54,35 +53,28 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String email;
         String name;
 
-        // Google
         if (attrs.containsKey("sub")) {
             provider = "google";
             providerUserId = (String) attrs.get("sub");
             email = (String) attrs.get("email");
             name = (String) attrs.getOrDefault("name", "Google User");
-
-            // GitHub
         } else if (attrs.containsKey("id")) {
             provider = "github";
             providerUserId = attrs.get("id").toString();
             email = (String) attrs.get("email");
             name = (String) attrs.getOrDefault("name", attrs.get("login"));
-
         } else {
-            // Fallback
             provider = "unknown";
             providerUserId = "unknown";
             email = "unknown@local";
             name = "Unknown User";
         }
 
-        // Find or create user
         User user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null) {
             Optional<UserSocialAccount> social = userSocialRepository
                     .findByProviderAndProviderUserId(provider, providerUserId);
-
             if (social.isPresent()) {
                 user = social.get().getUser();
             }
@@ -102,22 +94,13 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             userSocialRepository.save(social);
         }
 
-        // Create tokens
         TokenService.TokenPair tokens = tokenService.createTokens(user);
+        tokenService.setRefreshCookie(response, tokens.refreshToken());
 
-        // Set secure refresh cookie
-        Cookie cookie = new Cookie("refresh", tokens.refreshToken());
-        cookie.setHttpOnly(true);
-        cookie.setPath("/api/auth/refresh");
-        cookie.setMaxAge(60 * 60 * 24 * 30);
-        cookie.setSecure(false); // change to true in HTTPS
-        response.addCookie(cookie);
-
-        // Redirect to frontend success page
-        String redirectUrl = frontendBaseUrl +
-                "/auth/success?token=" + URLEncoder.encode(tokens.accessToken(), StandardCharsets.UTF_8) +
-                "&email=" + URLEncoder.encode(user.getEmail(), StandardCharsets.UTF_8) +
-                "&name=" + URLEncoder.encode(user.getName(), StandardCharsets.UTF_8);
+        String redirectUrl = frontendBaseUrl
+                + "/auth/success?token=" + URLEncoder.encode(tokens.accessToken(), StandardCharsets.UTF_8)
+                + "&email=" + URLEncoder.encode(user.getEmail(), StandardCharsets.UTF_8)
+                + "&name=" + URLEncoder.encode(user.getName(), StandardCharsets.UTF_8);
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }

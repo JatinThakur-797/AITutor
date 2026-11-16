@@ -14,13 +14,13 @@ public class AIService {
     }
 
     public String generateContent(String prompt) {
-
         if (prompt == null || prompt.isBlank()) {
-            throw new IllegalArgumentException(
-                    "AI prompt must not be empty"
-            );
+            throw new IllegalArgumentException("AI prompt must not be empty");
         }
 
+        // Do not retry here with an unbounded/duplicated call loop.
+        // Let provider exceptions propagate to the API error handler and
+        // the LearningPathGenerator Feign circuit-breaker/fallback.
         String response = chatClient
                 .prompt()
                 .user(prompt)
@@ -28,9 +28,7 @@ public class AIService {
                 .content();
 
         if (response == null || response.isBlank()) {
-            throw new IllegalStateException(
-                    "AI provider returned an empty response"
-            );
+            throw new IllegalStateException("AI provider returned an empty response");
         }
 
         return response;

@@ -13,14 +13,16 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class LessonService {
+
     private static final Logger log = LoggerFactory.getLogger(LessonService.class);
 
     private final UserGoalRepo goalRepo;
@@ -28,97 +30,168 @@ public class LessonService {
     private final DayPlanRepo dayPlanRepo;
     private final AIService aiService;
     private final PromptsClass prompts;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional // Ensures atomicity and provides basic thread-safety for the DB operations
     public LessonContentDTO getOrGenerateLesson(UUID goalId, Integer dayNumber, UUID userId) {
 
-        UserGoal goal = goalRepo.findByIdAndUserId(goalId, userId)
-                .orElseThrow(() -> new RuntimeException("Goal not found"));
+        // Transaction 1: load and copy the minimum data required for prompt generation.
+        // The transaction closes before the remote LLM call begins.
+        LessonSnapshot snapshot = transactionTemplate.execute(status -> {
+            UserGoal goal = goalRepo.findByIdAndUserId(goalId, userId)
+                    .orElseThrow(() -> new IllegalArgumentException("Goal not found"));
 
-        Roadmap roadmap = roadmapRepo.findByUserGoalId(goal.getId())
-                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+            Roadmap roadmap = roadmapRepo.findByUserGoalId(goal.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Roadmap not found"));
 
-        DayPlan dayPlan = dayPlanRepo.findByRoadmapIdAndDayNumber(roadmap.getId(), dayNumber)
-                .orElseThrow(() -> new RuntimeException("Day " + dayNumber + " not found"));
+            DayPlan dayPlan = dayPlanRepo.findByRoadmapIdAndDayNumber(roadmap.getId(), dayNumber)
+                    .orElseThrow(() -> new IllegalArgumentException("Day " + dayNumber + " not found"));
 
-        boolean isFallback = false;
+            List<String> subTopics = dayPlan.getSubTopics() == null
+                    ? List.of()
+                    : List.copyOf(dayPlan.getSubTopics());
 
-        // JIT Generation Check
-        if (dayPlan.getLessonContent() == null || dayPlan.getLessonContent().isBlank()) {
-            try {
-                String prompt = prompts.buildLessonPrompt(
-                        dayPlan.getMainTopic(),
-                        dayPlan.getSubTopics(),
-                        goal.getCurrentLevel(),
-                        goal.getGoal()
-                );
+            return new LessonSnapshot(
+                    dayPlan.getId(),
+                    dayPlan.getMainTopic(),
+                    subTopics,
+                    goal.getCurrentLevel(),
+                    goal.getGoal(),
+                    dayPlan.getLessonContent(),
+                    dayPlan.getTaskType(),
+                    dayPlan.getTaskData()
+            );
+        });
 
-                LessonResponse newLesson = aiService.generateLesson(prompt);
+        if (snapshot == null) {
+            throw new IllegalStateException("Unable to load lesson context");
+        }
 
-                if (Boolean.TRUE.equals(newLesson.getDegraded())) {
-                    isFallback = true;
-                    return new LessonContentDTO(
-                            dayPlan.getMainTopic(),
-                            dayPlan.getSubTopics(),
-                            newLesson.getLesson(),
-                            newLesson.getTask() != null ? newLesson.getTask().getType() : "ACTIVITY",
-                            newLesson.getTask() != null && newLesson.getTask().getContent() != null ? newLesson.getTask().getContent() : Map.of(),
-                            true,
-                            true
-                    );
-                }
+        // Cached lesson: no LLM call and no write transaction required.
+        if (snapshot.lessonContent() != null && !snapshot.lessonContent().isBlank()) {
+            return toDto(
+                    snapshot,
+                    snapshot.lessonContent(),
+                    snapshot.taskType(),
+                    aiService.parseTaskStringToMap(snapshot.taskData()),
+                    false
+            );
+        }
 
-                LessonResponse.TaskDTO task = newLesson.getTask();
+        String prompt = prompts.buildLessonPrompt(
+                snapshot.mainTopic(),
+                snapshot.subTopics(),
+                snapshot.currentLevel(),
+                snapshot.goal()
+        );
 
-                String taskType = "ACTIVITY";
+        // No database transaction is held while waiting for the remote AI provider.
+        LessonResponse generated = aiService.generateLesson(prompt);
 
-                Map<String, Object> taskContent = Map.of(
-                        "instructions",
-                        "Review the lesson and practice its concepts in your IDE."
-                );
+        if (generated == null || Boolean.TRUE.equals(generated.getDegraded())) {
+            log.warn("Lesson generation returned degraded content for day {}", dayNumber);
+            return fallbackDto(snapshot, generated);
+        }
 
-                if (task != null) {
-                    if (task.getType() != null && !task.getType().isBlank()) {
-                        taskType = task.getType();
-                    }
+        if (generated.getLesson() == null || generated.getLesson().isBlank()) {
+            log.warn("AI returned an empty lesson for day {}", dayNumber);
+            return fallbackDto(snapshot, null);
+        }
 
-                    if (task.getContent() != null && !task.getContent().isEmpty()) {
-                        taskContent = task.getContent();
-                    }
-                }
+        LessonResponse.TaskDTO task = generated.getTask();
+        String taskType = "ACTIVITY";
+        Map<String, Object> taskContent = Map.of(
+                "instructions",
+                "Review the lesson and practice its concepts in your IDE."
+        );
 
-// Save generated lesson and assessment
-                dayPlan.setLessonContent(newLesson.getLesson());
-                dayPlan.setTaskType(taskType);
-                dayPlan.setTaskData(aiService.convertTaskMapToString(taskContent));
-
-                dayPlanRepo.save(dayPlan);
-
-            } catch (Exception e) {
-                log.warn("Serving fallback content for Day {} due to AI failure: {}", dayNumber, e.getMessage());
-                isFallback = true;
-
-                return new LessonContentDTO(
-                        dayPlan.getMainTopic(),
-                        dayPlan.getSubTopics(),
-                        "# Content Temporarily Unavailable\n\nPlease try refreshing the page.",
-                        "ACTIVITY",
-                        Map.of("instructions", "Review your notes for this topic and practice in your IDE."),
-                        true,
-                        true
-                );
+        if (task != null) {
+            if (task.getType() != null && !task.getType().isBlank()) {
+                taskType = task.getType().toUpperCase();
+            }
+            if (task.getContent() != null && !task.getContent().isEmpty()) {
+                taskContent = task.getContent();
             }
         }
 
-        // Return the successfully generated (or previously cached) lesson
+        final String finalTaskType = taskType;
+        final Map<String, Object> finalTaskContent = taskContent;
+
+        // Transaction 2: persist the successful response only.
+        // If another request generated the same lesson concurrently, use the
+        // already-persisted value instead of overwriting it.
+        LessonContentDTO persisted = transactionTemplate.execute(status -> {
+            DayPlan dayPlan = dayPlanRepo.findById(snapshot.dayPlanId())
+                    .orElseThrow(() -> new IllegalArgumentException("Day plan no longer exists"));
+
+            if (dayPlan.getLessonContent() == null || dayPlan.getLessonContent().isBlank()) {
+                dayPlan.setLessonContent(generated.getLesson().trim());
+                dayPlan.setTaskType(finalTaskType);
+                dayPlan.setTaskData(aiService.convertTaskMapToString(finalTaskContent));
+                dayPlanRepo.save(dayPlan);
+            }
+
+            return new LessonContentDTO(
+                    dayPlan.getMainTopic(),
+                    dayPlan.getSubTopics(),
+                    dayPlan.getLessonContent(),
+                    dayPlan.getTaskType(),
+                    aiService.parseTaskStringToMap(dayPlan.getTaskData()),
+                    false,
+                    false
+            );
+        });
+
+        if (persisted == null) {
+            throw new IllegalStateException("Unable to persist generated lesson");
+        }
+        return persisted;
+    }
+
+    private LessonContentDTO fallbackDto(LessonSnapshot snapshot, LessonResponse generated) {
+        String lesson = generated != null && generated.getLesson() != null
+                ? generated.getLesson()
+                : "# Content Temporarily Unavailable\n\nPlease try refreshing the page.";
+
+        Map<String, Object> taskContent = generated != null
+                && generated.getTask() != null
+                && generated.getTask().getContent() != null
+                ? generated.getTask().getContent()
+                : Map.of("instructions", "Review your notes for this topic and practice in your IDE.");
+
+        String taskType = generated != null
+                && generated.getTask() != null
+                && generated.getTask().getType() != null
+                ? generated.getTask().getType()
+                : "ACTIVITY";
+
+        return toDto(snapshot, lesson, taskType, taskContent, true);
+    }
+
+    private LessonContentDTO toDto(
+            LessonSnapshot snapshot,
+            String lesson,
+            String taskType,
+            Map<String, Object> taskContent,
+            boolean degraded) {
         return new LessonContentDTO(
-                dayPlan.getMainTopic(),
-                dayPlan.getSubTopics(),
-                dayPlan.getLessonContent(),
-                dayPlan.getTaskType(),
-                aiService.parseTaskStringToMap(dayPlan.getTaskData()),
-                isFallback,
-                isFallback
+                snapshot.mainTopic(),
+                snapshot.subTopics(),
+                lesson,
+                taskType,
+                taskContent,
+                degraded,
+                degraded
         );
     }
+
+    private record LessonSnapshot(
+            Long dayPlanId,
+            String mainTopic,
+            List<String> subTopics,
+            String currentLevel,
+            String goal,
+            String lessonContent,
+            String taskType,
+            String taskData
+    ) {}
 }
