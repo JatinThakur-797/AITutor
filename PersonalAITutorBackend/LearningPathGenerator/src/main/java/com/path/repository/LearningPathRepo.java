@@ -11,6 +11,6 @@ import java.util.UUID;
 @Repository
 public interface LearningPathRepo extends JpaRepository<LearningPath, Long> {
     List<LearningPath> findByUserId(UUID userId);
-    List<LearningPath> findAllByOrderByCreatedAtDesc();
+//    List<LearningPath> findAllByOrderByCreatedAtDesc();
 }
 

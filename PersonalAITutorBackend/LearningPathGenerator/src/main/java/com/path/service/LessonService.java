@@ -68,9 +68,29 @@ public class LessonService {
                     );
                 }
 
+                LessonResponse.TaskDTO task = newLesson.getTask();
+
+                String taskType = "ACTIVITY";
+
+                Map<String, Object> taskContent = Map.of(
+                        "instructions",
+                        "Review the lesson and practice its concepts in your IDE."
+                );
+
+                if (task != null) {
+                    if (task.getType() != null && !task.getType().isBlank()) {
+                        taskType = task.getType();
+                    }
+
+                    if (task.getContent() != null && !task.getContent().isEmpty()) {
+                        taskContent = task.getContent();
+                    }
+                }
+
+// Save generated lesson and assessment
                 dayPlan.setLessonContent(newLesson.getLesson());
-                dayPlan.setTaskType(newLesson.getTask().getType());
-                dayPlan.setTaskData(aiService.convertTaskMapToString(newLesson.getTask().getContent()));
+                dayPlan.setTaskType(taskType);
+                dayPlan.setTaskData(aiService.convertTaskMapToString(taskContent));
 
                 dayPlanRepo.save(dayPlan);
 

@@ -38,10 +38,10 @@ public class PathController {
         return ResponseEntity.ok(aiResponse);
 
     }
-    @GetMapping("/all")
-    public ResponseEntity<List<LearningPath>> getAllPaths() {
-        return ResponseEntity.ok(repo.findAllByOrderByCreatedAtDesc());
-    }
+//    @GetMapping("/all")
+//    public ResponseEntity<List<LearningPath>> getAllPaths() {
+//        return ResponseEntity.ok(repo.findAllByOrderByCreatedAtDesc());
+//    }
 
     private String buildPrompt(LearningPathRequest request) {
         return """

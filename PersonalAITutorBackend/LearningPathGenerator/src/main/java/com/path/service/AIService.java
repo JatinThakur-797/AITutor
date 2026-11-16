@@ -137,34 +137,127 @@ public class AIService {
         }
     }
 
+
     public LessonResponse generateLesson(String prompt) {
         try {
             String response = aiClient.generatePath(prompt);
-            log.debug("RAW LESSON:\n{}", response);
 
             if (isDownstreamFailure(response)) {
                 return buildDegradedLesson();
             }
 
-            String cleaned = stripOuterMarkdown(response);
-            LessonResponse result = mapper.readValue(cleaned, LessonResponse.class);
+            log.info("Lesson AI response received. Characters: {}", response.length());
 
-            if (result.getTask() == null) {
-                LessonResponse.TaskDTO fallback = new LessonResponse.TaskDTO();
-                fallback.setType("ACTIVITY");
-                fallback.setContent(Map.of("instructions", "Review the lesson above and practice the concepts in your IDE."));
-                result.setTask(fallback);
+            String lessonMarkdown = extractSection(
+                    response, "<LESSON>", "</LESSON>"
+            );
+
+            if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+                throw new IllegalArgumentException(
+                        "AI response does not contain a valid LESSON section"
+                );
             }
 
-            // Note: Preserving real lesson markdown without destructive character stripping
+            String taskJson = extractSection(
+                    response, "<TASK>", "</TASK>"
+            );
+
+            LessonResponse result = new LessonResponse();
+            result.setLesson(lessonMarkdown.trim());
+
+            LessonResponse.TaskDTO task = parseLessonTask(taskJson);
+            result.setTask(task);
+
             result.setDegraded(false);
             return result;
 
         } catch (Exception e) {
-            log.warn("Lesson generation/parsing failed, using degraded stub: {}", e.getMessage());
+            log.error(
+                    "Lesson generation failed. Reason: {}",
+                    e.getMessage(),
+                    e
+            );
+
             return buildDegradedLesson();
         }
     }
+
+    private String extractSection(
+            String response,
+            String startMarker,
+            String endMarker
+    ) {
+        if (response == null) {
+            return null;
+        }
+
+        int start = response.indexOf(startMarker);
+        if (start < 0) {
+            return null;
+        }
+
+        start += startMarker.length();
+
+        int end = response.indexOf(endMarker, start);
+        if (end < 0) {
+            return null;
+        }
+
+        return response.substring(start, end).trim();
+    }
+
+    private LessonResponse.TaskDTO parseLessonTask(String taskJson) {
+        LessonResponse.TaskDTO task = new LessonResponse.TaskDTO();
+
+        try {
+            if (taskJson == null || taskJson.isBlank()) {
+                throw new IllegalArgumentException("Missing TASK section");
+            }
+
+            JsonNode root = mapper.readTree(taskJson);
+
+            String type = root.path("type").asText("ACTIVITY");
+            JsonNode contentNode = root.path("content");
+
+            if (!contentNode.isObject()) {
+                throw new IllegalArgumentException("Invalid task content");
+            }
+
+            Map<String, Object> content = mapper.convertValue(
+                    contentNode,
+                    mapper.getTypeFactory().constructMapType(
+                            HashMap.class,
+                            String.class,
+                            Object.class
+                    )
+            );
+
+            if (!List.of("QUIZ", "CODING", "ACTIVITY").contains(type.toUpperCase())) {
+                type = "ACTIVITY";
+                content = Map.of(
+                        "instructions",
+                        "Review the lesson and practice its concepts in your IDE."
+                );
+            }
+
+            task.setType(type.toUpperCase());
+            task.setContent(content);
+
+            return task;
+
+        } catch (Exception e) {
+            log.warn("Assessment parsing failed: {}", e.getMessage());
+
+            task.setType("ACTIVITY");
+            task.setContent(Map.of(
+                    "instructions",
+                    "Review the lesson and practice its concepts in your IDE."
+            ));
+
+            return task;
+        }
+    }
+
 
     // ──────────────────────────────────────────────
     // DEGRADED BUILDERS

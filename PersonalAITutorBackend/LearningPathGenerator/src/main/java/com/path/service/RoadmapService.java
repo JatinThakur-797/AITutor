@@ -3,6 +3,7 @@ package com.path.service;
 import com.path.dto.RoadmapResponse;
 import com.path.entity.DayPlan;
 import com.path.entity.Roadmap;
+import com.path.entity.UserGoal;
 import com.path.repository.DayPlanRepo;
 import com.path.repository.RoadmapRepo;
 import lombok.RequiredArgsConstructor;
@@ -76,5 +77,24 @@ public class RoadmapService {
     public double getProgressPercent(Long roadmapId, int totalDays) {
         long completed = dayPlanRepo.countByRoadmapIdAndIsCompleted(roadmapId, true);
         return totalDays > 0 ? (completed * 100.0 / totalDays) : 0;
+    }
+
+    public Roadmap getOrCreateRoadmap(UserGoal goal) {
+        return roadmapRepo.findByUserGoal(goal)
+                .orElseGet(() -> {
+                    Roadmap r = new Roadmap();
+                    r.setUserGoal(goal);
+                    r.setTotalDays(goal.getDuration() * 30);
+                    r.setMode(computeMode(goal));
+                    return roadmapRepo.save(r);
+                });
+    }
+
+    private String computeMode(UserGoal goal) {
+        boolean feasible = Boolean.TRUE.equals(goal.getFeasible());
+        if (!feasible) return "FAST";
+        int totalDays = goal.getDuration() * 30;
+        int estimated = goal.getEstimatedDaysRequired() != null ? goal.getEstimatedDaysRequired() : totalDays;
+        return totalDays <= estimated * 1.2 ? "MEDIUM" : "NATURAL";
     }
 }

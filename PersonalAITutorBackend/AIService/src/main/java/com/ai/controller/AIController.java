@@ -17,7 +17,7 @@ public class AIController {
 
     @PostMapping("/generate")
     public String generate(@RequestBody String prompt) {
-        System.out.println("From AI Controller method ");
+        System.out.println("From AI Controller method   \n" + prompt);
         String response = aiService.generateContent(prompt);
         System.out.println(response);
         return response;
