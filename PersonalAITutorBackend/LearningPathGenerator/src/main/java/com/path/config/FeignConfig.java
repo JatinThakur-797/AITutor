@@ -7,14 +7,13 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class FeignConfig {
+
     @Value("${app.internal.secret}")
     private String gatewaySecret;
+
     @Bean
     public RequestInterceptor requestInterceptor() {
-        return requestTemplate -> {
-            System.out.println(gatewaySecret);
-            // We verify ourselves to the AI Service
-            requestTemplate.header("X-Gateway-Secret", gatewaySecret);
-        };
+        return requestTemplate ->
+                requestTemplate.header("X-Gateway-Secret", gatewaySecret);
     }
 }
