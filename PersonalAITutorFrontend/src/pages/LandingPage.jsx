@@ -1,20 +1,20 @@
 import {
-    ArrowRight,
-    ArrowUpRight,
-    BookOpen,
-    BrainCircuit,
-    CheckCircle2,
-    ChevronDown,
-    Code2,
-    GraduationCap,
-    Menu,
-    MessageCircle,
-    Moon,
-    Route,
-    Sparkles,
-    Sun,
-    Target,
-    X
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  BrainCircuit,
+  CheckCircle2,
+  ChevronDown,
+  Code2,
+  GraduationCap,
+  Menu,
+  MessageCircle,
+  Moon,
+  Route,
+  Sparkles,
+  Sun,
+  Target,
+  X
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";

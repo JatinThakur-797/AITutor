@@ -1,9 +1,9 @@
+import { Bot, ChevronDown, LoaderCircle, Send, Sparkles, StopCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Bot, ChevronDown, LoaderCircle, Send, Sparkles, StopCircle, Wifi, WifiOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { learningApi } from '../api/learning';
 import { getErrorMessage } from '../api/client';
+import { learningApi } from '../api/learning';
 import { Button } from './UI';
 
 export default function MentorChat({ lessonTitle, lessonContent }) {
