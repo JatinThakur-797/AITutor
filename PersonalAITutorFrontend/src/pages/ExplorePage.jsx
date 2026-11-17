@@ -131,7 +131,7 @@ export default function ExplorePage() {
           {filtered.map((day, index) => (
             <Link
               className="article-card"
-              to={`/lesson/${activeGoalId}/${day.day}`}
+              to={`/app/lesson/${activeGoalId}/${day.day}`}
               key={day.day}
             >
               <div className={`article-cover ${colors[index % colors.length]}`}>

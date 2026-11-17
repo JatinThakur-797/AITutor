@@ -255,13 +255,13 @@ export default function LessonPage() {
             </div>
           </div>
           <div className="lesson-bottom-nav">
-            <Link to={`/roadmap/${goalId}`} className="back-link">
+            <Link to={`/app/roadmap/${goalId}`} className="back-link">
               <ArrowLeft size={15} /> All lessons
             </Link>
             <Button
               variant="secondary"
               onClick={() =>
-                navigate(`/lesson/${goalId}/${Number(dayNumber) + 1}`)
+                navigate(`/app/lesson/${goalId}/${Number(dayNumber) + 1}`)
               }
             >
               Next day <ArrowRight size={15} />
