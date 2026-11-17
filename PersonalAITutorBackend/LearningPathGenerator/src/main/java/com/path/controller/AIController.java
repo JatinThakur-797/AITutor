@@ -2,6 +2,7 @@
 package com.path.controller;
 
 import com.path.dto.*;
+import com.path.entity.LearningPath;
 import com.path.service.GoalService;
 import com.path.service.LearningPathService;
 import com.path.service.LessonService;
@@ -167,8 +168,8 @@ public class AIController {
     // =========================================
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllPaths(
-            @RequestHeader("X-User-Id") String userId) {
+    public ResponseEntity<List<LearningPath>> getAllPaths(
+            @RequestHeader("X-User-Id") UUID userId) {
 
         return ResponseEntity.ok(
                 learningPathService.getAllPaths(userId)

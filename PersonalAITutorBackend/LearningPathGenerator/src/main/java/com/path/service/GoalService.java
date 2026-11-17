@@ -77,21 +77,37 @@ public class GoalService {
                 "Quiz must be completed before feasibility check"
         );
 
-        // Save AI-assessed level
         goal.setAssignedLevel(report.getAssignedLevel());
         goalRepo.save(goal);
 
-        // Generate feasibility analysis
         FeasibilityResponse response =
                 aiService.checkFeasibility(goal);
 
-        // Persist feasibility result
+        if (response == null) {
+            throw new IllegalStateException(
+                    "Feasibility service returned no response"
+            );
+        }
+
+        // Do not persist a fallback as a genuine AI assessment.
+        if (Boolean.TRUE.equals(response.getDegraded())) {
+            log.warn(
+                    "Feasibility generation degraded for goal {}",
+                    goal.getId()
+            );
+
+            return response;
+        }
+
         goal.setFeasible(response.getIsFeasible());
+
         goal.setEstimatedDaysRequired(
                 response.getEstimatedDaysRequired()
         );
+
         goal.setExpectedOutcome(response.getExpectedOutcome());
         goal.setFeasibilityReason(response.getReason());
+
         goal.setStatus(GoalStatus.FEASIBILITY_DONE);
 
         goalRepo.save(goal);
@@ -109,25 +125,32 @@ public class GoalService {
             int startDay,
             int days) {
 
-        UserGoal goal = getLatestGoal(userId);
-
-        // Allow initial generation and subsequent chunks
-        if (goal.getStatus() != GoalStatus.FEASIBILITY_DONE &&
-                goal.getStatus() != GoalStatus.ROADMAP_GENERATED) {
-
-            throw new RuntimeException(
-                    "Feasibility check must be completed before roadmap generation. Current status: "
-                            + goal.getStatus()
+        if (startDay < 1 || days < 1) {
+            throw new IllegalArgumentException(
+                    "startDay and days must be positive"
             );
         }
 
-        Roadmap roadmap = getOrCreateRoadmap(goal);
+        UserGoal goal = getLatestGoal(userId);
 
-        // Fetch previously covered topics
+        if (goal.getStatus() != GoalStatus.FEASIBILITY_DONE &&
+                goal.getStatus() != GoalStatus.ROADMAP_GENERATED) {
+
+            throw new IllegalStateException(
+                    "Feasibility check must be completed before roadmap generation. " +
+                            "Current status: " + goal.getStatus()
+            );
+        }
+
+        // Do not create a new roadmap before successful AI generation.
+        Roadmap roadmap = roadmapRepo.findByUserGoal(goal)
+                .orElse(null);
+
         List<String> coveredTopics =
-                roadmapService.getCoveredTopics(roadmap);
+                roadmap == null
+                        ? List.of()
+                        : roadmapService.getCoveredTopics(roadmap);
 
-        // Build AI prompt
         String prompt = prompts.buildRoadmapPromptWithMemory(
                 goal,
                 startDay,
@@ -135,22 +158,33 @@ public class GoalService {
                 coveredTopics
         );
 
-        // Generate roadmap
         RoadmapResponse response =
                 aiService.generateRoadmap(prompt);
 
-        // Save only successful AI responses
-        if (!Boolean.TRUE.equals(response.getDegraded())) {
+        if (response == null ||
+                !Boolean.FALSE.equals(response.getDegraded())) {
 
-            roadmapService.saveRoadmapChunk(
-                    roadmap,
-                    response.getRoadmap()
+            log.warn(
+                    "Roadmap generation failed or degraded for goal {}",
+                    goal.getId()
             );
 
-            if (goal.getStatus() != GoalStatus.ROADMAP_GENERATED) {
-                goal.setStatus(GoalStatus.ROADMAP_GENERATED);
-                goalRepo.save(goal);
-            }
+            return response;
+        }
+
+        // Create the roadmap only after a successful AI response.
+        if (roadmap == null) {
+            roadmap = roadmapService.getOrCreateRoadmap(goal);
+        }
+
+        roadmapService.saveRoadmapChunk(
+                roadmap,
+                response.getRoadmap()
+        );
+
+        if (goal.getStatus() != GoalStatus.ROADMAP_GENERATED) {
+            goal.setStatus(GoalStatus.ROADMAP_GENERATED);
+            goalRepo.save(goal);
         }
 
         return response;
@@ -357,45 +391,4 @@ public class GoalService {
         }
     }
 
-
-    private Roadmap getOrCreateRoadmap(UserGoal goal) {
-
-        return roadmapRepo.findByUserGoal(goal)
-                .orElseGet(() -> {
-
-                    Roadmap roadmap = new Roadmap();
-
-                    roadmap.setUserGoal(goal);
-
-                    roadmap.setTotalDays(
-                            goal.getDuration() * 30
-                    );
-
-                    roadmap.setMode(
-                            computeMode(goal)
-                    );
-
-                    return roadmapRepo.save(roadmap);
-                });
-    }
-
-
-    private String computeMode(UserGoal goal) {
-
-        boolean feasible = Boolean.TRUE.equals(goal.getFeasible());
-
-        if (!feasible) {
-            return "FAST";
-        }
-
-        int totalDays = goal.getDuration() * 30;
-
-        int estimated = goal.getEstimatedDaysRequired() != null
-                ? goal.getEstimatedDaysRequired()
-                : totalDays;
-
-        return totalDays <= estimated * 1.2
-                ? "MEDIUM"
-                : "NATURAL";
-    }
 }

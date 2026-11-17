@@ -42,8 +42,12 @@ public class AIService {
     // ──────────────────────────────────────────────
     public QuizResponse generateQuiz(String prompt) {
         try {
-            String response = aiClient.generatePath(prompt);
-            log.debug("RAW QUIZ RESPONSE:\n{}", response);
+            String response = aiClient.generateJson(prompt);
+
+            log.debug(
+                    "Quiz AI response received. Characters: {}",
+                    response == null ? 0 : response.length()
+            );
 
             if (isDownstreamFailure(response)) {
                 return buildDegradedQuiz(null);
@@ -92,8 +96,10 @@ public class AIService {
                 return buildDegradedFeasibility(goal);
             }
 
-            String clean = sanitize(response);
-            FeasibilityResponse feasibilityResponse = mapper.readValue(clean, FeasibilityResponse.class);
+            JsonNode root = parseJsonNode(response);
+
+            FeasibilityResponse feasibilityResponse =
+                    mapper.treeToValue(root, FeasibilityResponse.class);
             feasibilityResponse.setDegraded(false);
             return feasibilityResponse;
 
@@ -437,10 +443,29 @@ public class AIService {
     }
 
     private JsonNode parseJsonNode(String response) {
+
+        if (isDownstreamFailure(response)) {
+            throw new IllegalStateException(
+                    "AI service returned an empty or failed response"
+            );
+        }
+
         try {
-            return mapper.readTree(sanitize(response));
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid JSON structure from AI", e);
+            JsonNode root = mapper.readTree(response);
+
+            if (root == null || !root.isObject()) {
+                throw new IllegalArgumentException(
+                        "AI response must be a JSON object"
+                );
+            }
+
+            return root;
+
+        } catch (Exception exception) {
+            throw new IllegalArgumentException(
+                    "AI returned invalid JSON",
+                    exception
+            );
         }
     }
 

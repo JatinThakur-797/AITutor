@@ -33,7 +33,11 @@ public class LessonService {
     private final TransactionTemplate transactionTemplate;
 
     public LessonContentDTO getOrGenerateLesson(UUID goalId, Integer dayNumber, UUID userId) {
-
+        if (dayNumber == null || dayNumber < 1) {
+            throw new IllegalArgumentException(
+                    "Day number must be positive"
+            );
+        }
         // Transaction 1: load and copy the minimum data required for prompt generation.
         // The transaction closes before the remote LLM call begins.
         LessonSnapshot snapshot = transactionTemplate.execute(status -> {
@@ -67,12 +71,30 @@ public class LessonService {
         }
 
         // Cached lesson: no LLM call and no write transaction required.
-        if (snapshot.lessonContent() != null && !snapshot.lessonContent().isBlank()) {
+        if (snapshot.lessonContent() != null &&
+                !snapshot.lessonContent().isBlank()) {
+
+            Map<String, Object> cachedTask =
+                    aiService.parseTaskStringToMap(snapshot.taskData());
+
+            if (cachedTask.isEmpty()) {
+                cachedTask = Map.of(
+                        "instructions",
+                        "Review the lesson and practice its concepts in your IDE."
+                );
+            }
+
+            String cachedTaskType =
+                    snapshot.taskType() == null ||
+                            snapshot.taskType().isBlank()
+                            ? "ACTIVITY"
+                            : snapshot.taskType();
+
             return toDto(
                     snapshot,
                     snapshot.lessonContent(),
-                    snapshot.taskType(),
-                    aiService.parseTaskStringToMap(snapshot.taskData()),
+                    cachedTaskType,
+                    cachedTask,
                     false
             );
         }

@@ -10,8 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -34,24 +33,74 @@ public class RoadmapService {
     }
 
     @Transactional
-    public void saveRoadmapChunk(Roadmap roadmap, List<RoadmapResponse.DayPlanDTO> dtoList) {
-        if (dtoList == null || dtoList.isEmpty()) return;
+    public void saveRoadmapChunk(
+            Roadmap roadmap,
+            List<RoadmapResponse.DayPlanDTO> dtoList) {
 
-        List<DayPlan> dayPlans = dtoList.stream().map(dto -> {
-            DayPlan dp = new DayPlan();
-            dp.setDayNumber(dto.getDay());
-            dp.setMainTopic(dto.getMainTopic());
-            dp.setSubTopics(dto.getSubTopics() != null ? dto.getSubTopics() : List.of());
+        if (roadmap == null || roadmap.getId() == null) {
+            throw new IllegalArgumentException(
+                    "A persisted roadmap is required"
+            );
+        }
 
-            if (dto.getHoursAllocation() != null) {
-                dp.setTheoryHours(dto.getHoursAllocation().getTheory());
-                dp.setPracticeHours(dto.getHoursAllocation().getPractice());
+        if (dtoList == null || dtoList.isEmpty()) {
+            return;
+        }
+
+        Set<Integer> processedDays = new HashSet<>();
+        List<DayPlan> dayPlans = new ArrayList<>();
+
+        for (RoadmapResponse.DayPlanDTO dto : dtoList) {
+
+            if (dto == null || dto.getDay() == null ||
+                    dto.getDay() < 1) {
+                throw new IllegalArgumentException(
+                        "Every roadmap day must have a valid day number"
+                );
             }
 
-            dp.setDailyGoal(dto.getDailyGoal());
-            dp.setRoadmap(roadmap);
-            return dp;
-        }).toList();
+            if (!processedDays.add(dto.getDay())) {
+                throw new IllegalArgumentException(
+                        "Duplicate day number in generated chunk: " + dto.getDay()
+                );
+            }
+
+            // Update an existing day or create a new one.
+            DayPlan dayPlan = dayPlanRepo
+                    .findByRoadmapIdAndDayNumber(
+                            roadmap.getId(),
+                            dto.getDay()
+                    )
+                    .orElseGet(DayPlan::new);
+
+            dayPlan.setDayNumber(dto.getDay());
+            dayPlan.setMainTopic(dto.getMainTopic());
+
+            dayPlan.setSubTopics(
+                    dto.getSubTopics() != null
+                            ? dto.getSubTopics()
+                            : List.of()
+            );
+
+            if (dto.getHoursAllocation() != null) {
+                dayPlan.setTheoryHours(
+                        dto.getHoursAllocation().getTheory()
+                );
+
+                dayPlan.setPracticeHours(
+                        dto.getHoursAllocation().getPractice()
+                );
+            }
+
+            dayPlan.setDailyGoal(dto.getDailyGoal());
+            dayPlan.setRoadmap(roadmap);
+
+            if (dayPlan.getIsCompleted() == null) {
+                dayPlan.setIsCompleted(false);
+            }
+
+            dayPlans.add(dayPlan);
+        }
 
         dayPlanRepo.saveAll(dayPlans);
     }
@@ -60,14 +109,31 @@ public class RoadmapService {
      * Mark a day as completed (for progress tracking / leaderboard)
      */
     @Transactional
-    public void markDayCompleted(Long roadmapId, Integer dayNumber) {
-        System.out.println("roadMap Id + " + roadmapId + "dayNumber : " + dayNumber);
-        dayPlanRepo.findByRoadmapIdAndDayNumber(roadmapId, dayNumber)
-                .ifPresent(day -> {
-                    day.setIsCompleted(true);
-                    day.setCompletedAt(java.time.LocalDateTime.now());
-                    dayPlanRepo.save(day);
-                });
+    public void markDayCompleted(
+            Long roadmapId,
+            Integer dayNumber) {
+
+        DayPlan day = dayPlanRepo
+                .findByRoadmapIdAndDayNumber(
+                        roadmapId,
+                        dayNumber
+                )
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Roadmap day not found: " + dayNumber
+                        )
+                );
+
+        if (Boolean.TRUE.equals(day.getIsCompleted())) {
+            return;
+        }
+
+        day.setIsCompleted(true);
+        day.setCompletedAt(
+                java.time.LocalDateTime.now()
+        );
+
+        dayPlanRepo.save(day);
     }
 
     /**
@@ -79,14 +145,17 @@ public class RoadmapService {
         return totalDays > 0 ? (completed * 100.0 / totalDays) : 0;
     }
 
+    @Transactional
     public Roadmap getOrCreateRoadmap(UserGoal goal) {
         return roadmapRepo.findByUserGoal(goal)
                 .orElseGet(() -> {
-                    Roadmap r = new Roadmap();
-                    r.setUserGoal(goal);
-                    r.setTotalDays(goal.getDuration() * 30);
-                    r.setMode(computeMode(goal));
-                    return roadmapRepo.save(r);
+                    Roadmap roadmap = new Roadmap();
+
+                    roadmap.setUserGoal(goal);
+                    roadmap.setTotalDays(goal.getDuration() * 30);
+                    roadmap.setMode(computeMode(goal));
+
+                    return roadmapRepo.save(roadmap);
                 });
     }
 

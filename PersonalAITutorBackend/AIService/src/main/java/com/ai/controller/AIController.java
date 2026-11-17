@@ -3,6 +3,7 @@ package com.ai.controller;
 import com.ai.service.AIService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,12 +21,28 @@ public class AIController {
         this.aiService = aiService;
     }
 
-    @PostMapping("/generate")
+    @PostMapping(
+            value = "/generate",
+            produces = MediaType.TEXT_PLAIN_VALUE
+    )
     public String generate(@RequestBody String prompt) {
+
         String response = aiService.generateContent(prompt);
-        log.info("AI generation completed. Prompt characters: {}, response characters: {}",
+
+        log.info(
+                "AI generation completed. Prompt characters: {}, response characters: {}",
                 prompt == null ? 0 : prompt.length(),
-                response.length());
+                response == null ? 0 : response.length()
+        );
+
         return response;
+    }
+
+    @PostMapping(
+            value = "/generate/json",
+            produces = MediaType.TEXT_PLAIN_VALUE
+    )
+    public String generateJson(@RequestBody String prompt) {
+        return aiService.generateJsonContent(prompt);
     }
 }

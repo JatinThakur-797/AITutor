@@ -12,9 +12,28 @@ public class AIClientFallbackFactory implements FallbackFactory<AIClient> {
 
     @Override
     public AIClient create(Throwable cause) {
-        return prompt -> {
-            log.error("AI service downstream call failed: {}", cause != null ? cause.getMessage() : "unknown", cause);
-            return SENTINEL_FALLBACK;
+
+        return new AIClient() {
+
+            private String fallback() {
+                log.error(
+                        "AI service downstream call failed: {}",
+                        cause != null ? cause.getMessage() : "unknown",
+                        cause
+                );
+
+                return SENTINEL_FALLBACK;
+            }
+
+            @Override
+            public String generatePath(String prompt) {
+                return fallback();
+            }
+
+            @Override
+            public String generateJson(String prompt) {
+                return fallback();
+            }
         };
     }
 }

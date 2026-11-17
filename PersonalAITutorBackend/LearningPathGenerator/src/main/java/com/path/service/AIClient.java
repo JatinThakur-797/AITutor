@@ -10,4 +10,7 @@ public interface AIClient {
 
     @PostMapping("/api/ai/generate")
     String generatePath(@RequestBody String prompt);
+
+    @PostMapping("/api/ai/generate/json")
+    String generateJson(@RequestBody String prompt);
 }

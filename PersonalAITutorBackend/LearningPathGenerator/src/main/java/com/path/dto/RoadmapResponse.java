@@ -22,7 +22,7 @@ public class RoadmapResponse {
 
     @Data
     public static class DayPlanDTO {
-        private int day;
+        private Integer day;
 
         @JsonProperty("main_topic")
         private String mainTopic;
