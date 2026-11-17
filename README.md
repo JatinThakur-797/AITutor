@@ -1,355 +1,350 @@
-# 🧠 PathAI — Personal AI Tutor
+# PathAI — AI-Powered Personal Learning Platform
 
-> An intelligent, adaptive learning platform that takes any topic you want to learn, runs a diagnostic assessment, generates a realistic study plan, and teaches it to you with AI-generated interactive lessons — all powered by a Spring Boot microservice backend and a sleek React frontend.
+PathAI is a full-stack learning platform that turns a learner's goal into a structured, personalized study journey. A learner defines what they want to learn, completes an AI-generated diagnostic assessment, reviews a feasibility report, follows a day-by-day roadmap, studies generated lessons, completes practice tasks, and asks an AI mentor questions about the current lesson.
 
-[![Java](https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.4%20%2F%203.5.8-brightgreen?style=flat-square&logo=spring)](https://spring.io/projects/spring-boot)
-[![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-7-purple?style=flat-square&logo=vite)](https://vite.dev/)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Groq](https://img.shields.io/badge/LLM-Groq%20%2F%20Llama%203.3-red?style=flat-square)](https://groq.com/)
-[![MySQL](https://img.shields.io/badge/Database-MySQL%208-blue?style=flat-square&logo=mysql)](https://mysql.com/)
+The repository contains a React/Vite single-page application and a Spring Boot microservice backend. The browser communicates with the backend through the Spring Cloud API Gateway.
 
----
+## Product workflow
 
-## 📖 What is PathAI?
+1. **Create an account or sign in** with email/password, Google, or GitHub.
+2. **Define a learning goal** by entering the topic, current level, daily study time, and target duration.
+3. **Complete a diagnostic quiz** generated for that learning goal.
+4. **Review feasibility** based on the assessment score and assigned level.
+5. **Generate a roadmap** in day-based chunks. The current frontend requests the first seven days and can request later chunks through the same endpoint.
+6. **Read a generated lesson** with topic sections and Markdown-rendered content.
+7. **Practice** using a quiz, a coding editor, or a written activity.
+8. **Track completion** by marking a roadmap day complete.
+9. **Ask the AI mentor** for help using the current lesson as context. Both synchronous chat and an SSE streaming endpoint are available in the codebase.
 
-PathAI is a **full-stack personal AI tutor** that solves the most frustrating problem in self-learning: **you don't know what you don't know, and typical courses are too slow or too fast for your actual skill level.**
+## Main capabilities
 
-PathAI solves this with a 6-phase adaptive pipeline:
+- Personalized goal onboarding and diagnostic skill assessment.
+- AI feasibility feedback and day-by-day roadmap generation.
+- On-demand lesson generation and article-style lesson reading.
+- Roadmap progress and day-completion tracking.
+- Lesson-level quiz, coding, and activity tasks.
+- Monaco-based coding editor with local draft saving, reset, and copy actions.
+- Lesson-aware AI mentor with synchronous and optional streaming chat.
+- Google and GitHub OAuth2, JWT access tokens, and an HttpOnly refresh-token cookie.
+- Responsive dashboard and navigation with dark and light themes.
+- Explore page that presents lessons generated from the signed-in learner's roadmaps.
 
-1. **Tell it what you want to learn** — any topic, any timeframe
-2. **Take a diagnostic quiz** — AI probes your real skill level with 10 targeted questions
-3. **Get an honest feasibility check** — AI compares your self-estimate vs. actual skill and corrects your timeline if needed
-4. **Follow a personalized roadmap** — structured day-by-day plan locked in sequence
-5. **Study with rich interactive lessons** — AI-generated markdown content with diagrams, code examples, and syntax highlighting
-6. **Practice with tasks** — hands-on coding exercises with Monaco IDE integration
+> **Current product boundaries:** Explore is a GFG-inspired lesson library built from the learner's generated roadmap; it is not a separate public blog/CMS. The coding editor supports editing and saving code, but the backend does not currently provide a sandboxed code-execution/grading API. Coding drafts and activity notes are stored in the browser; roadmap day completion is persisted by the backend.
 
----
+## Architecture
 
-## 🏗️ System Architecture
-
+```text
+                           Browser
+                    React 19 + Vite SPA
+                         localhost:5173
+                               |
+                   REST / JSON / optional SSE
+                               |
+                    Spring Cloud API Gateway
+                      localhost:8080
+                  JWT validation, CORS, routing,
+                    Redis-backed rate limiting
+                               |
+          +--------------------+--------------------+
+          |                    |                    |
+          v                    v                    v
+     User-Service         LearningPath          AI-Service
+       :8081              Generator :8085          :8083
+   Auth, JWT, OAuth2      Goals, quiz,             Spring AI
+   refresh cookie         feasibility,             Groq-compatible
+                          roadmap, lessons,        chat and generation
+                          mentor orchestration
+          |                    |                    |
+          v                    v                    |
+       MySQL                 MySQL                  |
+          \\                    /                    /
+           +------------------+---------------------+
+                              |
+                       Eureka Registry
+                         :8761
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        React SPA (Port 5173)                            │
-│  Landing → Login/Signup → Dashboard → AI Pipeline (6 Phases)           │
-│  TailwindCSS v4 | React Router 7 | Axios + Auto-refresh interceptor     │
-└────────────────────────────┬────────────────────────────────────────────┘
-                             │ HTTPS / REST
-                ┌────────────▼────────────┐
-                │      API Gateway        │  Port 5050
-                │   Spring Cloud Gateway  │  ← JWT Auth Filter
-                │   Redis Session Cache   │  ← CORS (allow-credentials)
-                └──┬──────────┬──────┬───┘
-                   │          │      │
-          ┌────────▼──┐  ┌────▼──┐  ┌▼───────────────────┐
-          │User-Service│  │AI-Svc │  │LearningPathGenerator│
-          │Port 8080   │  │Pt1010 │  │Port 8085            │
-          │            │  │       │  │                     │
-          │ JWT Auth   │  │ Groq  │  │ Quiz Engine         │
-          │ OAuth2     │  │ LLM   │  │ Feasibility Check   │
-          │ (Google,   │  │(Llama │  │ Roadmap Builder     │
-          │  GitHub)   │  │ 3.3)  │  │ JIT Lesson Gen      │
-          │ MySQL      │  │       │  │ Chat Mentor         │
-          │(user_auth) │  │       │  │ MySQL (ai_tutor)    │
-          └────────────┘  └───────┘  └──────────┬──────────┘
-                                                 │ Feign HTTP
-                                            ┌────┘
-                                         to AI-Service
-                                         (Lesson + Chat)
-          ┌──────────────────────────────────────────────────┐
-          │              Eureka Service Registry              │
-          │                   Port 8761                      │
-          │   All services register → Gateway resolves lb:// │
-          └──────────────────────────────────────────────────┘
-```
 
----
+### Backend services
 
-## 📂 Repository Structure
+| Service | Default port | Responsibility |
+|---|---:|---|
+| `ServiceRegistry` | `8761` | Eureka service discovery. |
+| `ApiGateway` | `8080` | Browser entry point, JWT validation, CORS, routing, rate limiting, and resilience controls. Management endpoints use port `5051`. |
+| `User-Service` | `8081` | Registration, login, JWT access tokens, refresh-token cookies, logout, profile, and Google/GitHub OAuth2. |
+| `AIService` | `8083` | Spring AI integration with the configured Groq OpenAI-compatible endpoint; generates AI content and streams model output. |
+| `LearningPathGenerator` | `8085` | Learning goals, diagnostic quiz, feasibility, roadmap, lesson generation, completion state, and mentor orchestration. |
 
-```
-PersonalAITurtorProject/
-├── .gitignore                          # Root-level gitignore
-├── README.md                           # ← This file (complete overview)
-├── brain.md                            # AI model context memory file
-│
-├── PersonalAITutorBackend/             # Spring Boot microservices
-│   ├── .gitignore
-│   ├── README.md                       # Backend-specific docs
-│   ├── ServiceRegistry/                # Eureka (Port 8761)
-│   ├── ApiGateway/                     # Gateway + JWT filter (Port 5050)
-│   ├── User-Service/                   # Auth, JWT, OAuth2 (Port 8080)
-│   ├── AIService/                      # Groq/LLM integration (Port 1010)
-│   └── LearningPathGenerator/          # Core engine (Port 8085)
-│
-└── PersonalAITutorFrontend/            # React + Vite SPA
-    ├── .gitignore
-    ├── README.md                       # Frontend-specific docs
+The service ports above are the defaults in the current `application.properties` files. Environment variables can override ports where configured.
+
+### Technologies
+
+| Layer | Technologies |
+|---|---|
+| Frontend | React 19, Vite 7, React Router 7, Axios, Lucide React, custom CSS |
+| Lesson/task UI | React Markdown, remark-gfm, Monaco Editor |
+| Backend | Java 17, Spring Boot 3.5.8, Spring Cloud 2025.0.0 |
+| Gateway/resilience | Spring Cloud Gateway, Resilience4j, Redis, Micrometer/Prometheus |
+| Discovery/communication | Netflix Eureka, OpenFeign, Spring Cloud LoadBalancer |
+| AI integration | Spring AI 1.1.0, Groq through an OpenAI-compatible API |
+| Authentication | Spring Security, JWT, OAuth2 Client, HttpOnly refresh cookie |
+| Persistence | Spring Data JPA, Hibernate, MySQL, Flyway (User-Service) |
+| Build/CI | Maven, npm, GitHub Actions, Dockerfiles |
+
+The AI model is configured through `AI_MODEL`; the provider endpoint is configured in `AIService` to use Groq's OpenAI-compatible API.
+
+## Repository structure
+
+```text
+AITutor/
+├── README.md
+├── .env.example
+├── docker-compose.yml
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── PersonalAITutorBackend/
+│   ├── README.md
+│   ├── ApiGateway/
+│   ├── ServiceRegistry/
+│   ├── User-Service/
+│   ├── AIService/
+│   └── LearningPathGenerator/
+└── PersonalAITutorFrontend/
+    ├── README.md
+    ├── package.json
+    ├── vite.config.js
     └── src/
-        ├── api/                        # Axios clients
-        ├── auth/                       # AuthContext
-        ├── components/tutor/           # 6-phase pipeline components
-        └── pages/                      # Route pages
+        ├── api/
+        ├── components/
+        ├── context/
+        ├── pages/
+        ├── App.jsx
+        └── styles.css
 ```
 
----
+## Frontend routes
 
-## 🚀 The 6-Phase AI Learning Pipeline
+The public landing and authentication pages are outside the protected workspace. All learning-workspace pages use the `/app/**` route namespace.
 
-### Phase 1 — `InputPhase` — Goal Definition
-The user specifies:
-- **Learning goal** (e.g., "Learn React in 30 days")
-- **Self-rated skill level** (Beginner / Intermediate / Advanced)
-- **Available timeframe** (days)
+| Route | Access | Page |
+|---|---|---|
+| `/` | Public | Landing page |
+| `/login` | Public | Login |
+| `/register` | Public | Registration |
+| `/auth/success` | OAuth callback | OAuth completion page |
+| `/app` | Authenticated | Dashboard |
+| `/app/start` | Authenticated | Create a learning goal |
+| `/app/quiz` | Authenticated | Diagnostic quiz |
+| `/app/feasibility` | Authenticated | Feasibility report |
+| `/app/roadmap/:goalId` | Authenticated | Roadmap |
+| `/app/lesson/:goalId/:dayNumber` | Authenticated | Lesson and task workspace |
+| `/app/explore` | Authenticated | Generated lesson library |
+| `/app/profile` | Authenticated | Profile and preferences |
 
-### Phase 2 — `QuizPhase` — Diagnostic Assessment
-- AI generates **10 progressive multiple-choice questions** tailored to the stated goal
-- Questions increase in difficulty to map where exactly the user's knowledge breaks down
-- Score determines the **actual baseline difficulty** for lesson content
+The React route definitions are in `PersonalAITutorFrontend/src/App.jsx`. Nested paths under `/app` are relative route segments; navigation links and `navigate()` calls should use the complete `/app/...` destinations.
 
-### Phase 3 — `FeasibilityPhase` — Timeline Reality Check
-- Compares user's **self-reported skill level** vs. **quiz-derived actual level**
-- AI generates an honest feasibility report: "Your quiz score suggests beginner level but you said intermediate — adjusting timeline to 45 days"
-- Prevents over-ambitious plans that lead to dropout
+## API overview
 
-### Phase 4 — `RoadmapPhase` — Structured Study Plan
-- Generates a **day-by-day roadmap** with named topics for each day
-- Visual timeline with **progress tracking** and sequential locking (can't skip ahead)
-- Day cards show: topic name, completion status, lesson access button
+The frontend uses the API Gateway as its base URL. The default local URL is `http://localhost:8080`.
 
-### Phase 5 — `LessonPhase` — Interactive Lesson Reader
-- **Split-layout UI**: Table of Contents sidebar + main content panel
-- **AI-generated markdown lessons** with:
-  - Code blocks with syntax highlighting (react-syntax-highlighter)
-  - Mermaid architecture diagrams
-  - GFM tables and callouts
-- **JIT generation**: Lessons generated and cached on first access, not upfront
-- **Floating AI Chat Mentor**: Ask questions scoped to the current lesson topic
+### Authentication and profile
 
-### Phase 6 — `TaskPhase` — Hands-On Practice
-- Practice task generated alongside the lesson
-- Monaco Editor integration for code execution
-- Self-assessment to mark day complete
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/signup` | Register a user. |
+| `POST` | `/api/auth/login` | Authenticate and return an access token; refresh token is set as an HttpOnly cookie. |
+| `POST` | `/api/auth/refresh` | Rotate/refresh the access token using the refresh cookie. |
+| `POST` | `/api/auth/logout` | Log out and clear/revoke refresh-token state. |
+| `GET` | `/api/user/profile` | Load the authenticated user's profile. |
 
----
+OAuth authorization starts at `/oauth2/authorization/google` or `/oauth2/authorization/github`. The User-Service redirects to the configured frontend callback at `/auth/success` with the access token and profile query parameters; the frontend callback stores the access token, refreshes the profile, and should send the user to `/app` after successful completion.
 
-## 🛠️ Full Tech Stack
+### Learning workflow
 
-### Backend
-| Layer | Technology |
-|-------|-----------|
-| Framework | Spring Boot 3.5.8 |
-| Language | Java 17 |
-| Service Mesh | Spring Cloud 2025.0.0 |
-| API Gateway | Spring Cloud Gateway |
-| Service Discovery | Netflix Eureka |
-| AI / LLM | Spring AI 1.1.0 → Groq Cloud |
-| LLM Model | Llama 3.3 70B Versatile |
-| Auth | JWT (HMAC-SHA256 via jjwt 0.11.5) |
-| Social Login | OAuth2 (Google + GitHub) |
-| HTTP Client | OpenFeign |
-| ORM | Spring Data JPA + Hibernate |
-| Database | MySQL 8 (2 schemas) |
-| Migrations | Flyway |
-| Session Cache | Redis |
-| Documentation | SpringDoc OpenAPI (Swagger UI) |
-| Build | Apache Maven |
-| Utilities | Lombok |
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/path/testSkills` | Create a goal and generate its diagnostic quiz. |
+| `POST` | `/api/path/feasibility` | Submit quiz score/assigned level and get feasibility feedback. |
+| `POST` | `/api/path/roadmap?startDay=1&days=7` | Generate a roadmap chunk. |
+| `GET` | `/api/path/goals` | List the authenticated user's goals. |
+| `GET` | `/api/path/roadmap/{goalId}/days` | Read roadmap days and completion state. |
+| `GET` | `/api/path/roadmap/{goalId}/day/{dayNumber}/lesson` | Fetch or generate a lesson. |
+| `PATCH` | `/api/path/roadmap/{goalId}/day/{dayNumber}/complete` | Mark a roadmap day complete. |
+| `POST` | `/api/path/chat` | Synchronous lesson-aware AI mentor request. |
+| `POST` | `/api/path/chat/stream` | Server-Sent Events (SSE) mentor response. |
 
-### Frontend
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| React | 19 | UI Framework |
-| Vite | 7 | Build tool + HMR dev server |
-| TailwindCSS | v4 | Utility-first CSS |
-| React Router DOM | 7 | Client-side routing |
-| Axios | 1.x | HTTP + interceptor logic |
-| React Markdown | 10 | Lesson markdown rendering |
-| remark-gfm | 4 | GitHub flavored markdown |
-| react-syntax-highlighter | 16 | Code syntax highlighting |
-| Mermaid.js | 11 | Architecture diagram rendering |
-| Monaco Editor | 4 | Embedded IDE for tasks |
-| lucide-react | latest | Icon library |
+Legacy learning-path routes are also present: `POST /api/path/generate` and `GET /api/path/all`.
 
----
+The API Gateway validates bearer tokens on protected routes and supplies the authenticated user identifier to downstream services. The frontend Axios client sends the access token and includes credentials so the browser can send the refresh cookie.
 
-## ⚙️ Setup & Running Locally
+## Local development setup
 
 ### Prerequisites
-- **Java 17+** and **Maven 3.8+**
-- **Node.js 18+** and **npm**
-- **MySQL 8** running on port 3306
-- **Redis** running on port 6379
-- **Groq API Key** — free at [console.groq.com](https://console.groq.com/)
-- **Google OAuth App** credentials
-- **GitHub OAuth App** credentials
 
-### 1. Environment Configuration
+- Java 17+
+- Maven 3.8+
+- Node.js 20.19+ (or 22.12+) and npm 10+
+- MySQL 8+
+- Redis (the Gateway's Redis host/port must be reachable)
+- A Groq API key for AI generation
+- Google and/or GitHub OAuth application credentials if social login is required
 
-Copy the root template and populate required secrets:
+Create the database schemas used by the services, or configure each service's `DB_URL` to point at the database/schema you use. The backend documentation refers to `user_auth` for authentication data and `ai_tutor` for learning-path data.
 
-```bash
-cp .env.example .env
+### Configure environment variables
+
+The services read configuration from environment variables and, where configured, an optional service-local `.env` file. Use the keys required by each service's `application.properties`; do not paste real credentials into Git.
+
+**API Gateway**
+
+```dotenv
+APP_GATEWAY_SECRET=replace_with_a_long_random_secret
+JWT_SECRET=replace_with_the_same_jwt_signing_secret_used_by_User-Service
+REDIS_HOST=localhost
+REDIS_PORT=6379
+EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:8761/eureka/
 ```
 
-Ensure MySQL credentials, `APP_JWT_SECRET` (generate with `openssl rand -base64 48`), and `OPENAI_API_KEY` (Groq API key) are populated in `.env`.
+If you run Redis through the repository's Compose mapping from the host, the published host port is `6380`; set `REDIS_PORT=6380`. If the Gateway itself runs in Docker on the Compose network, use the Redis service hostname and container port (`REDIS_HOST=redis`, `REDIS_PORT=6379`).
 
-### 2. Run with Docker Compose (Recommended)
+**User-Service**
 
-```bash
-docker compose up -d
+```dotenv
+DB_URL=jdbc:mysql://localhost:3306/user_auth
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=replace_me
+BASE_URL=http://localhost:5173
+JWT_SECRET=replace_with_the_same_jwt_signing_secret_used_by_ApiGateway
+JWT_ISSUER=pathai
+INTERNAL_SECRET=replace_with_a_shared_internal_secret
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+REFRESH_COOKIE_SECURE=false
+REFRESH_COOKIE_SAME_SITE=Lax
 ```
 
-This boots MySQL, Redis, all Spring Boot microservices, and the React frontend.
+**LearningPathGenerator**
 
-### 3. Alternative: Manual Local Run (5-Terminal Fallback)
-
-If running directly on your host:
-
-1. **Database Setup**:
-```sql
-CREATE DATABASE user_auth;
-CREATE DATABASE ai_tutor;
+```dotenv
+DB_URL=jdbc:mysql://localhost:3306/ai_tutor
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=replace_me
+APP_INTERNAL_SECRET=replace_with_the_shared_internal_secret
 ```
 
-2. **Start Backend Services (In This Order)**:
-```bash
-# Terminal 1 — Eureka Registry (must start first)
+**AIService**
+
+```dotenv
+OPENAI_API_KEY=your_groq_api_key
+AI_MODEL=your_supported_groq_model
+EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:8761/eureka/
+INTERNAL_SECRET=replace_with_the_shared_internal_secret
+```
+
+`ServiceRegistry` does not require application secrets for its local default configuration.
+
+> **Configuration note:** The checked-in root `.env.example` contains legacy variable names/port values. Treat the per-service `application.properties` files as authoritative and verify the variable names before copying that template. In particular, the current frontend/Gateway default is port `8080`, not the older `5050` value shown in the legacy template.
+
+### Start the backend
+
+Run each service in a separate terminal, from its module directory. Start Eureka first, then the remaining services.
+
+```powershell
+# Terminal 1 — Eureka
 cd PersonalAITutorBackend/ServiceRegistry
 mvn spring-boot:run
+```
 
-# Terminal 2 — User Service
-cd PersonalAITutorBackend/User-Service
-mvn spring-boot:run
-
-# Terminal 3 — AI Service
-cd PersonalAITutorBackend/AIService
-mvn spring-boot:run
-
-# Terminal 4 — Learning Path Generator
-cd PersonalAITutorBackend/LearningPathGenerator
-mvn spring-boot:run
-
-# Terminal 5 — API Gateway (start last)
+```powershell
+# Terminal 2 — API Gateway
 cd PersonalAITutorBackend/ApiGateway
 mvn spring-boot:run
 ```
 
-3. **Start Frontend**:
-```bash
+```powershell
+# Terminal 3 — User-Service
+cd PersonalAITutorBackend/User-Service
+mvn spring-boot:run
+```
+
+```powershell
+# Terminal 4 — AIService
+cd PersonalAITutorBackend/AIService
+mvn spring-boot:run
+```
+
+```powershell
+# Terminal 5 — LearningPathGenerator
+cd PersonalAITutorBackend/LearningPathGenerator
+mvn spring-boot:run
+```
+
+Check the Eureka dashboard at `http://localhost:8761` and confirm the services have registered. The Gateway is available at `http://localhost:8080`.
+
+### Start the frontend
+
+```powershell
 cd PersonalAITutorFrontend
+Copy-Item .env.example .env
 npm install
 npm run dev
-# → http://localhost:5173
 ```
 
-### Service Port Reference
+Open `http://localhost:5173`.
 
-| Service | Port |
-|---------|------|
-| React Frontend | 5173 |
-| API Gateway | 5050 |
-| Eureka Dashboard | 8761 |
-| User-Service | 8080 |
-| AI-Service | 1010 |
-| LearningPathGenerator | 8085 |
-| Redis | 6379 |
-| MySQL | 3306 |
+The frontend environment template contains:
 
----
-
-## 🔐 Security Architecture
-
-### JWT Strategy
-- **Access Token**: Short-lived (100 minutes), stored in `localStorage`, sent via `Authorization: Bearer` header
-- **Refresh Token**: Long-lived (30 days), stored in `HttpOnly Secure` cookie (inaccessible to JS)
-- **Rotation**: On every refresh call, old refresh token is invalidated and a new pair is issued
-
-### OAuth2 Flow
-```
-User clicks "Login with Google"
-  → Backend redirects to Google auth consent
-  → Google returns authorization code to backend callback
-  → Backend exchanges code for user profile
-  → Backend creates/updates user in MySQL
-  → Backend issues own JWT pair
-  → Frontend receives token via /auth/success redirect
-  → Enters SPA with valid JWT session
+```dotenv
+VITE_API_BASE_URL=http://localhost:8080
+VITE_ENABLE_CHAT_STREAMING=false
 ```
 
-### API Gateway Auth Filter
-Every request through the gateway passes through `AuthenticationFilter`, which:
-1. Checks for public routes (login, register, oauth2/**) — bypasses filter
-2. Extracts `Authorization: Bearer <token>` header
-3. Validates JWT signature using shared secret
-4. Rejects with 401 if invalid/expired
+Set `VITE_ENABLE_CHAT_STREAMING=true` to use the SSE mentor endpoint when the corresponding backend route is available through the Gateway. Otherwise, the frontend uses the synchronous `POST /api/path/chat` endpoint. Restart Vite after changing `.env` values.
 
----
+### Build the frontend
 
-## 🧩 Engineering Challenges & Solutions
+```powershell
+cd PersonalAITutorFrontend
+npm ci
+npm run build
+npm run preview
+```
 
-### 1. Stateless JWT Auth Across Microservices
-**Challenge**: How do you validate JWTs at the gateway without hitting the User-Service database on every request?
+The production build is written to `PersonalAITutorFrontend/dist`.
 
-**Solution**: Both the API Gateway and User-Service share the same JWT secret via environment variables. The gateway validates the JWT's HMAC-SHA256 signature locally — no database call, no inter-service roundtrip. Verification is O(1).
+## Docker notes
 
-### 2. LLM Timeout for Long Lesson Generation (60s+)
-**Challenge**: Generating a complete interactive lesson (2000+ tokens) via Groq takes 30-90 seconds. Spring's default Feign and web timeouts are 60 seconds — causing `ReadTimeoutException`.
+A frontend Dockerfile is provided in `PersonalAITutorFrontend/Dockerfile`; it builds the Vite app and serves the static output with Nginx on port `80` (the repository's Compose file maps this to host port `3000`).
 
-**Solution**: Configured OpenFeign with `connectTimeout=50000ms` and `readTimeout=600000ms` (10 minutes). This allows the system to handle even the longest possible LLM responses without failing.
+The root `docker-compose.yml` is a development starting point, not a verified one-command deployment. It currently defines PostgreSQL while the checked-in User-Service and LearningPathGenerator dependencies/configuration use MySQL. Reconcile the database engine, JDBC URLs, environment variables, and Gateway CORS origin before using the Compose stack end to end. When serving the frontend from `http://localhost:3000`, add that origin to the Gateway's allowed CORS origins; the current local Gateway configuration allows `http://localhost:5173`.
 
-### 3. Mermaid Diagram Flicker in ReactMarkdown
-**Challenge**: Mermaid diagrams flickered and disappeared on scroll because ReactMarkdown recreated custom component references on every render, causing React to unmount/remount diagram nodes.
+For production, use HTTPS, set `REFRESH_COOKIE_SECURE=true`, configure the correct `REFRESH_COOKIE_SAME_SITE` policy, add the deployed frontend origin to Gateway CORS, and store all credentials in your hosting platform's secret manager.
 
-**Solution**: All custom ReactMarkdown component maps (`components={...}`) are wrapped in `useMemo()`. This keeps object references stable across re-renders — React reuses the existing DOM nodes instead of unmounting them.
+## CI pipeline
 
-### 4. OAuth2 Token Bridging into SPA Without Full-Page State Loss
-**Challenge**: OAuth2 requires a full-page browser redirect to the backend and back. This breaks SPA state, localStorage, and React component state entirely.
+GitHub Actions is configured in `.github/workflows/ci.yml`:
 
-**Solution**: The backend OAuth2 success handler redirects to `/auth/success?token=ACCESS_TOKEN&refreshExpiry=...`. The `Success.jsx` page extracts the token from the URL query string, stores it in localStorage, then uses React Router's `useNavigate()` to enter the SPA cleanly — never losing the SPA context.
+- **Backend:** runs `mvn test -B` for `ApiGateway`, `LearningPathGenerator`, `User-Service`, `AIService`, and `ServiceRegistry`.
+- **Frontend:** runs `npm ci` followed by `npm run build`.
 
-### 5. Axios Token Refresh Race Condition
-**Challenge**: If multiple API calls fire simultaneously when the access token expires, each fires a separate `/auth/refresh` call — the first invalidates the refresh cookie, making all subsequent ones fail.
+The frontend CI job currently verifies dependency installation and the production build; it does not run a frontend unit-test suite.
 
-**Solution**: Added a `_retry` flag to `originalRequest` in the Axios interceptor. Only the first intercepted 401 triggers a refresh; subsequent intercepted errors skip the retry logic and fail cleanly.
+## Further documentation
 
-### 6. CORS + HttpOnly Cookie + API Gateway Coordination
-**Challenge**: The SPA needs to send both a JWT header AND have the browser include the HttpOnly refresh cookie on refresh calls — this requires `withCredentials: true` on the frontend AND explicit `allow-credentials=true` on the gateway.
+- [Backend setup and service details](PersonalAITutorBackend/README.md)
+- [Frontend setup and API integration details](PersonalAITutorFrontend/README.md)
+- [GitHub Actions workflow](.github/workflows/ci.yml)
 
-**Solution**: Configured gateway's CORS `allow-credentials=true`, `exposed-headers=Authorization,Set-Cookie`, and `allowed-origins=http://localhost:5173` (exact origin, not wildcard — required for credentials mode).
+## Security and contribution notes
 
----
+- Never commit `.env` files, OAuth client secrets, JWT signing keys, Groq API keys, or internal service secrets.
+- Use strong, independently generated secrets for production and keep the JWT signing secret consistent between the Gateway and User-Service.
+- Keep refresh tokens in the HttpOnly cookie; do not expose them to frontend JavaScript.
+- Use HTTPS in production and restrict CORS to the actual frontend origin.
+- Review dependency advisories with `npm audit` and update dependencies deliberately; avoid applying `npm audit fix --force` without reviewing breaking changes.
 
-## 🎯 Current Status
+## License
 
-### ✅ Completed Features
-- [x] Full authentication system: email/password + Google OAuth2 + GitHub OAuth2
-- [x] JWT access + refresh token rotation with HttpOnly cookie
-- [x] Full Eureka service registry + Spring Cloud Gateway routing with CircuitBreaker fallbacks
-- [x] Distributed Redis token bucket rate limiting on API Gateway with metrics
-- [x] Graceful AI generator degradation with Feign fallback factories (quiz, feasibility, roadmap, lesson)
-- [x] Flat light editorial design system (stone/amber/teal, zero purple/gradients, zero UI chrome emojis)
-- [x] Resilient frontend error boundaries, service health polling banner, and automatic retry handling
-- [x] Monaco code editor integrated into task phase with in-browser sandboxed JavaScript execution
-- [x] Self-assessment radio options with local storage persistence
-- [x] AI diagnostic quiz, feasibility check, roadmap, and JIT lessons with Mermaid diagrams
-- [x] Comprehensive backend and frontend automated test coverage
-
-### 🚧 In Progress / Known Gaps
-- [ ] **Multi-Goal Roadmap Isolation**: API endpoints should receive `goalId` explicitly instead of querying "latest goal" — prevents data overlap for users with multiple goals
-
----
-
-## 👨‍💻 Author
-
-**Jatin Thakur**
-- GitHub: [@JatinThakur-797](https://github.com/JatinThakur-797)
-- Project Repository: [AITutor](https://github.com/JatinThakur-797/AITutor)
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
+See the [`LICENSE`](LICENSE) file.
