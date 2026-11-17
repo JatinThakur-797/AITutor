@@ -14,31 +14,45 @@ import {
   Sun,
   X,
 } from "lucide-react";
+
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
 const primaryNav = [
-  { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
-  { to: "/app/explore", label: "Learn library", icon: BookOpen },
+  {
+    to: "/app",
+    label: "Overview",
+    icon: LayoutDashboard,
+    end: true,
+  },
+  {
+    to: "/app/explore",
+    label: "Learn library",
+    icon: BookOpen,
+  },
 ];
 
 export default function AppShell() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
   const closeMenu = () => setMobileOpen(false);
+
   const initials = (user?.name || user?.email || "Student")
     .split(/[\s@]/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0].toUpperCase())
     .join("");
+
   const title =
     location.pathname === "/app"
       ? "Overview"
@@ -55,40 +69,57 @@ export default function AppShell() {
                 : "Your workspace";
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/login", { replace: true });
+    try {
+      await logout();
+    } finally {
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
     <div className="app-shell">
-      {mobileOpen ? (
+      {mobileOpen && (
         <button
+          type="button"
           className="mobile-scrim"
           onClick={closeMenu}
           aria-label="Close navigation"
         />
-      ) : null}
+      )}
+
       <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
         <div className="brand-row">
           <div className="brand-mark">
             <GraduationCap size={20} />
           </div>
+
           <span>
             path<span className="brand-accent">ai</span>
           </span>
-          <button className="icon-btn sidebar-close" onClick={closeMenu}>
+
+          <button
+            type="button"
+            className="icon-btn sidebar-close"
+            onClick={closeMenu}
+            aria-label="Close sidebar"
+          >
             <X size={18} />
           </button>
         </div>
+
         <div className="workspace-switch">
           <div className="workspace-avatar">{initials || "ST"}</div>
+
           <div className="workspace-copy">
             <strong>My workspace</strong>
             <span>Personal learning</span>
           </div>
+
           <ChevronDown size={15} />
         </div>
+
         <div className="nav-label">WORKSPACE</div>
+
         <nav className="side-nav">
           {primaryNav.map((item) => (
             <NavLink
@@ -105,7 +136,9 @@ export default function AppShell() {
             </NavLink>
           ))}
         </nav>
+
         <div className="nav-label nav-label-spaced">YOUR LEARNING</div>
+
         <nav className="side-nav">
           <NavLink
             to="/app/start"
@@ -115,28 +148,33 @@ export default function AppShell() {
             <Plus size={18} />
             <span>New learning path</span>
           </NavLink>
+
           <NavLink
             to="/app/explore"
             onClick={closeMenu}
-            className={({ isActive }) =>
-              `nav-link ${isActive && location.pathname === "/explore" ? "active" : ""}`
-            }
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
           >
             <Compass size={18} />
             <span>Explore topics</span>
           </NavLink>
         </nav>
+
         <div className="sidebar-spacer" />
+
         <div className="sidebar-tip">
           <div className="tip-icon">
             <SparklesIcon />
           </div>
+
           <strong>Small steps, real progress.</strong>
+
           <p>Your next focused session is more valuable than a perfect plan.</p>
-          <button onClick={() => navigate("/app/start")}>
+
+          <button type="button" onClick={() => navigate("/app/start")}>
             Build a learning path <span>↗</span>
           </button>
         </div>
+
         <div className="sidebar-bottom">
           <NavLink
             to="/app/profile"
@@ -146,15 +184,20 @@ export default function AppShell() {
             <Settings2 size={18} />
             <span>Account settings</span>
           </NavLink>
+
           <div className="user-row">
             <div className="avatar">{initials}</div>
+
             <div className="user-copy">
               <strong>{user?.name || "Learner"}</strong>
               <span>{user?.email || "Signed in"}</span>
             </div>
+
             <button
+              type="button"
               className="icon-btn"
               title="Sign out"
+              aria-label="Sign out"
               onClick={handleLogout}
             >
               <LogOut size={16} />
@@ -167,43 +210,58 @@ export default function AppShell() {
         <header className="topbar">
           <div className="topbar-left">
             <button
+              type="button"
               className="icon-btn mobile-menu-btn"
               onClick={() => setMobileOpen(true)}
               aria-label="Open navigation"
             >
               <Menu size={20} />
             </button>
+
             <div className="breadcrumbs">
               <span>Workspace</span>
               <span className="crumb-divider">/</span>
               <strong>{title}</strong>
             </div>
           </div>
+
           <div className="topbar-right">
-            <button className="top-search" onClick={() => navigate("/app/explore")}>
+            <button
+              type="button"
+              className="top-search"
+              onClick={() => navigate("/app/explore")}
+            >
               <Search size={15} />
               <span>Find a lesson</span>
               <kbd>⌘ K</kbd>
             </button>
+
             <button
+              type="button"
               className="icon-btn"
               onClick={toggleTheme}
               title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label="Toggle theme"
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+
             <button
+              type="button"
               className="avatar avatar-top"
               onClick={() => navigate("/app/profile")}
               title="Open profile"
+              aria-label="Open profile"
             >
               {initials}
             </button>
           </div>
         </header>
+
         <div className="page-container">
           <Outlet />
         </div>
+
         <footer className="app-footer">
           <span>PathAI</span>
           <span>Learn with direction. Build with confidence.</span>
