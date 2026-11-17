@@ -109,8 +109,14 @@ public class LessonService {
         // No database transaction is held while waiting for the remote AI provider.
         LessonResponse generated = aiService.generateLesson(prompt);
 
-        if (generated == null || Boolean.TRUE.equals(generated.getDegraded())) {
-            log.warn("Lesson generation returned degraded content for day {}", dayNumber);
+        if (generated == null ||
+                !Boolean.FALSE.equals(generated.getDegraded())) {
+
+            log.warn(
+                    "Lesson generation failed or degraded for day {}",
+                    dayNumber
+            );
+
             return fallbackDto(snapshot, generated);
         }
 
@@ -170,10 +176,11 @@ public class LessonService {
     }
 
     private LessonContentDTO fallbackDto(LessonSnapshot snapshot, LessonResponse generated) {
-        String lesson = generated != null && generated.getLesson() != null
+        String lesson = generated != null
+                && generated.getLesson() != null
+                && !generated.getLesson().isBlank()
                 ? generated.getLesson()
                 : "# Content Temporarily Unavailable\n\nPlease try refreshing the page.";
-
         Map<String, Object> taskContent = generated != null
                 && generated.getTask() != null
                 && generated.getTask().getContent() != null
