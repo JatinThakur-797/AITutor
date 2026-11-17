@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -89,7 +91,7 @@ public class AIService {
     public FeasibilityResponse checkFeasibility(UserGoal goal) {
         try {
             String prompt = prompts.buildFeasibilityPrompt(goal);
-            String response = aiClient.generatePath(prompt);
+            String response = aiClient.generateJson(prompt);
             log.debug("RAW FEASIBILITY RESPONSE:\n{}", response);
 
             if (isDownstreamFailure(response)) {
@@ -114,7 +116,7 @@ public class AIService {
     // ──────────────────────────────────────────────
     public RoadmapResponse generateRoadmap(String prompt) {
         try {
-            String response = aiClient.generatePath(prompt);
+            String response = aiClient.generateJson(prompt);
             log.debug("RAW ROADMAP RESPONSE:\n{}", response);
 
             if (isDownstreamFailure(response)) {
@@ -145,43 +147,130 @@ public class AIService {
 
 
     public LessonResponse generateLesson(String prompt) {
+
         try {
             String response = aiClient.generatePath(prompt);
 
             if (isDownstreamFailure(response)) {
+                log.warn("AI service returned a failed lesson response");
                 return buildDegradedLesson();
             }
 
-            log.info("Lesson AI response received. Characters: {}", response.length());
-
-            String lessonMarkdown = extractSection(
-                    response, "<LESSON>", "</LESSON>"
+            log.info(
+                    "Lesson AI response received. Characters: {}",
+                    response.length()
             );
 
+            String lessonMarkdown = extractSection(
+                    response,
+                    "<LESSON>",
+                    "</LESSON>"
+            );
+
+            String taskJson = extractSection(
+                    response,
+                    "<TASK>",
+                    "</TASK>"
+            );
+
+            // Support JSON responses as well.
             if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+
+                String jsonContent = response.trim();
+
+                if (jsonContent.startsWith("```")) {
+                    jsonContent = jsonContent
+                            .replaceFirst("^```(?:json)?\\s*", "")
+                            .replaceFirst("\\s*```$", "")
+                            .trim();
+                }
+
+                try {
+                    JsonNode root = mapper.readTree(jsonContent);
+
+                    if (root != null && root.isObject()) {
+
+                        JsonNode lessonNode = root.path("lesson");
+
+                        if (!lessonNode.isTextual()) {
+                            lessonNode = root.path("content");
+                        }
+
+                        if (lessonNode.isTextual()) {
+                            lessonMarkdown = lessonNode.asText();
+                        }
+
+                        JsonNode taskNode = root.path("task");
+
+                        if (!taskNode.isMissingNode()
+                                && !taskNode.isNull()) {
+
+                            taskJson = taskNode.isTextual()
+                                    ? taskNode.asText()
+                                    : taskNode.toString();
+                        }
+                    }
+
+                } catch (Exception ignored) {
+                    // The response may be ordinary Markdown rather than JSON.
+                }
+            }
+
+            // Support plain Markdown responses.
+            if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+
+                String plainText = response.trim();
+
+                // Avoid treating invalid JSON or code-fenced JSON
+                // as a valid Markdown lesson.
+                if (!plainText.startsWith("{")
+                        && !plainText.startsWith("```json")
+                        && !plainText.equals(
+                        AIClientFallbackFactory.SENTINEL_FALLBACK
+                )) {
+
+                    // Remove a TASK section if present.
+                    plainText = Pattern.compile(
+                            "(?is)<\\s*TASK\\s*>.*?<\\s*/\\s*TASK\\s*>"
+                    ).matcher(plainText).replaceAll("").trim();
+
+                    lessonMarkdown = plainText;
+
+                    log.warn(
+                            "AI omitted LESSON markers. Accepted plain Markdown response."
+                    );
+                }
+            }
+
+            if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+
                 throw new IllegalArgumentException(
-                        "AI response does not contain a valid LESSON section"
+                        "AI response did not contain usable lesson content"
                 );
             }
 
-            String taskJson = extractSection(
-                    response, "<TASK>", "</TASK>"
-            );
-
             LessonResponse result = new LessonResponse();
+
             result.setLesson(lessonMarkdown.trim());
 
             LessonResponse.TaskDTO task = parseLessonTask(taskJson);
-            result.setTask(task);
 
+            result.setTask(task);
             result.setDegraded(false);
+
+            log.info(
+                    "Lesson successfully parsed. Characters: {}, task type: {}",
+                    lessonMarkdown.length(),
+                    task.getType()
+            );
+
             return result;
 
         } catch (Exception e) {
+
             log.error(
                     "Lesson generation failed. Reason: {}",
-                    e.getMessage(),
-                    e
+                    e.getMessage()
             );
 
             return buildDegradedLesson();
@@ -191,25 +280,31 @@ public class AIService {
     private String extractSection(
             String response,
             String startMarker,
-            String endMarker
-    ) {
-        if (response == null) {
+            String endMarker) {
+
+        if (response == null || response.isBlank()) {
             return null;
         }
 
-        int start = response.indexOf(startMarker);
-        if (start < 0) {
+        String tagName = startMarker
+                .replace("<", "")
+                .replace(">", "");
+
+        String regex = "(?is)<\\s*" +
+                Pattern.quote(tagName) +
+                "\\s*>(.*?)<\\s*/\\s*" +
+                Pattern.quote(tagName) +
+                "\\s*>";
+
+        Matcher matcher = Pattern.compile(regex).matcher(response);
+
+        if (!matcher.find()) {
             return null;
         }
 
-        start += startMarker.length();
+        String content = matcher.group(1).trim();
 
-        int end = response.indexOf(endMarker, start);
-        if (end < 0) {
-            return null;
-        }
-
-        return response.substring(start, end).trim();
+        return content.isBlank() ? null : content;
     }
 
     private LessonResponse.TaskDTO parseLessonTask(String taskJson) {
