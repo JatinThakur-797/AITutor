@@ -8,7 +8,6 @@ import com.auth.entities.User;
 import com.auth.exceptions.AuthException;
 import com.auth.repository.UserRepository;
 import com.auth.security.TokenService;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -44,10 +42,12 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request, HttpServletResponse response) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AuthException("Invalid email or password"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
+
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new AuthException("Invalid email or password");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
+
         var tokens = tokenService.createTokens(user);
         tokenService.setRefreshCookie(response, tokens.refreshToken());
         return new AuthResponse(tokens.accessToken(), new UserResponse(user));
@@ -60,6 +60,7 @@ public class AuthService {
         }
         var maybe = tokenService.refresh(oldRefresh)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
+
         tokenService.setRefreshCookie(response, maybe.refreshToken());
         return new AuthResponse(maybe.accessToken(), null);
     }
