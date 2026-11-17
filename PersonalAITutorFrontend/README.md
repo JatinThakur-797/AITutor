@@ -1,197 +1,123 @@
-# 🖥️ AITutor Frontend — React + Vite SPA
+# PathAI Frontend
 
-> The frontend for **PathAI / AITutor** is a modern, dark-themed Single Page Application (SPA) built with **React 19** and **Vite 7**. It guides users through a fully interactive AI-powered learning pipeline — from skill assessment to lesson completion.
+A complete React/Vite frontend for the current PathAI Spring Boot backend. It includes a responsive learning workspace, dark/light themes, authentication, goal onboarding, AI skill quiz, feasibility report, roadmap, lesson reader, coding/activity tasks, and lesson-aware mentor chat.
 
----
+## Stack
 
-## 🎨 Design System
+- React 19 + Vite
+- React Router
+- Axios with access-token attachment and refresh-cookie retry
+- Monaco Editor for coding tasks
+- React Markdown + GFM for generated technical lessons and mentor answers
+- Lucide icons
+- Custom responsive CSS design system (dark and light themes)
 
-The entire UI follows a **Replit Matte Charcoal** developer aesthetic:
+## 1. Requirements
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| Background | `#0e1117` | Page backgrounds |
-| Panel | `#1c1e26` | Cards, modals |
-| Border | `#2e303e` | Dividers, outlines |
-| Accent Cyan | `#00f0ff` | Highlights, icons |
-| Primary Button | `#0f62fe` | CTAs |
-| Typography | Inter + Geist Mono | Body + code |
+- Node.js 20.19+ or 22.12+
+- npm 10+
+- Your backend services running and registered in Eureka
+- API Gateway reachable from the browser
 
----
+## 2. Install and run
 
-## 📁 Project Structure
-
-```
-PersonalAITutorFrontend/
-├── public/                    # Static assets
-├── src/
-│   ├── api/
-│   │   ├── axiosClient.jsx    # Axios instance + auto token refresh interceptor
-│   │   ├── authApi.jsx        # Login, signup, logout API calls
-│   │   ├── pathApi.jsx        # Learning path API calls
-│   │   └── tutorApi.jsx       # Quiz, feasibility, roadmap, lesson, chat APIs
-│   ├── auth/
-│   │   └── AuthContext.jsx    # Global auth state (user, token, isLoggedIn)
-│   ├── components/
-│   │   ├── ProtectedRoute.jsx # Route guard: redirects to /login if unauthenticated
-│   │   ├── CodeEditor.jsx     # Monaco Editor wrapper (task/practice integration)
-│   │   └── tutor/             # The 6-phase AI pipeline components
-│   │       ├── InputPhase.jsx      # Goal, timeline, self-rating input form
-│   │       ├── QuizPhase.jsx       # 10-question progressive diagnostic quiz
-│   │       ├── FeasibilityPhase.jsx # AI timeline correction & gap analysis
-│   │       ├── RoadmapPhase.jsx    # Day-by-day visual roadmap with lock system
-│   │       ├── LessonPhase.jsx     # Split-layout lesson reader + AI chat mentor
-│   │       ├── TaskPhase.jsx       # Practice task display (Monaco IDE integration)
-│   │       └── MermaidViewer.jsx   # Mermaid diagram renderer (memoized)
-│   ├── pages/
-│   │   ├── Landing.jsx        # Public home page with feature showcase
-│   │   ├── Login.jsx          # Email/password + OAuth2 (Google, GitHub) login
-│   │   ├── Signup.jsx         # User registration page
-│   │   ├── Dashboard.jsx      # User's learning dashboard / goal overview
-│   │   ├── AIDashBoard.jsx    # AI tutoring pipeline controller (phase state machine)
-│   │   ├── UserDashboard.jsx  # Detailed user progress view
-│   │   ├── Success.jsx        # OAuth2 success redirect handler
-│   │   └── Error.jsx          # OAuth2 error / generic error page
-│   ├── App.jsx                # Root router with all routes defined
-│   ├── main.jsx               # React DOM entry point
-│   ├── index.css              # Global design tokens + Tailwind CSS v4 base
-│   └── App.css                # App-level layout styles
-├── .env.example               # Environment variable template
-├── vite.config.js
-├── eslint.config.js
-└── package.json
-```
-
----
-
-## 🔄 Application Flow — The 6-Phase AI Pipeline
-
-```
-User Enters Goal (/ai)
-        │
-        ▼
-┌──────────────┐
-│  InputPhase  │  User enters: learning goal, timeframe, self-rated skill level
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  QuizPhase   │  10 progressive MCQ diagnostic quiz → scores expertise baseline
-└──────┬───────┘
-       │
-       ▼
-┌─────────────────────┐
-│  FeasibilityPhase   │  AI compares self-report vs quiz score → corrects timeline
-└──────┬──────────────┘
-       │
-       ▼
-┌───────────────┐
-│ RoadmapPhase  │  Day-by-day locked roadmap, tracks completion states
-└──────┬────────┘
-       │ (Click "Start Lesson")
-       ▼
-┌───────────────┐
-│  LessonPhase  │  Split-layout: ToC sidebar + Markdown content + AI Chat Mentor
-└──────┬────────┘
-       │
-       ▼
-┌──────────────┐
-│  TaskPhase   │  Practice task + Monaco IDE playground
-└──────────────┘
-```
-
----
-
-## ⚡ Key Technical Features
-
-### Auto Token Refresh Interceptor
-`axiosClient.jsx` implements an Axios response interceptor that:
-1. Catches `401 Unauthorized` responses
-2. Automatically calls `/api/auth/refresh` using the HttpOnly cookie
-3. Retries the original request with the new access token
-4. Redirects to `/login` only if refresh also fails
-
-### Memoized Diagram Components
-`MermaidViewer.jsx` and custom ReactMarkdown renderers are wrapped in `useMemo()` to prevent React from unmounting/remounting Mermaid diagrams during scroll events — eliminating the diagram flicker bug.
-
-### SPA Navigation Preservation
-All routing uses React Router's `useNavigate()` and `<Link>` — never `window.location.href` — to preserve auth state and avoid unnecessary token loss during navigation.
-
-### JIT (Just-In-Time) Lesson Loading
-Lessons are NOT pre-generated. The frontend triggers lesson generation on first access via `getLessonContent()`, which signals the backend to generate + cache the lesson. Subsequent visits retrieve from DB.
-
----
-
-## 🛠️ Tech Stack
-
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| React | 19 | UI Framework |
-| Vite | 7 | Build Tool + Dev Server |
-| TailwindCSS | v4 (via @tailwindcss/vite) | Utility CSS |
-| React Router DOM | 7 | SPA Routing |
-| Axios | 1.x | HTTP Client |
-| React Markdown | 10 | Lesson content rendering |
-| remark-gfm | 4 | GitHub Flavored Markdown |
-| react-syntax-highlighter | 16 | Code block syntax highlighting |
-| mermaid | 11 | Diagram rendering |
-| @monaco-editor/react | 4 | Code IDE (Monaco) |
-| lucide-react | Latest | Icon library |
-
----
-
-## ⚙️ Setup & Configuration
-
-### Prerequisites
-- Node.js 18+ and npm
-- Backend services running (see backend README)
-
-### Installation
+From this directory:
 
 ```bash
-cd PersonalAITutorFrontend
 npm install
-```
-
-### Environment Variables
-
-Copy the template and set your values:
-
-```bash
-cp .env.example .env.local
-```
-
-```env
-# .env.local
-VITE_API_BASE_URL=http://localhost:5050
-```
-
-### Running the Dev Server
-
-```bash
+cp .env.example .env
 npm run dev
-# App available at http://localhost:5173
 ```
 
-### Building for Production
+On Windows PowerShell, use:
+
+```powershell
+Copy-Item .env.example .env
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+The default API URL is `http://localhost:8080`, matching the current Gateway `server.port` default. Change `VITE_API_BASE_URL` in `.env` when your gateway is hosted elsewhere.
+
+Build the production bundle:
 
 ```bash
 npm run build
-# Output in dist/
+npm run preview
 ```
 
----
+## 3. Backend API integration
 
-## 🧩 Challenges Solved
+The frontend uses the routes currently present in the repository:
 
-### 1. Infinite Re-render on ReactMarkdown with Custom Components
-Defining custom components (like `<MermaidViewer>`) inline inside `ReactMarkdown` caused React to treat them as new references on every render, unmounting and remounting diagram DOM nodes during scroll. **Fix**: Memoize component maps with `useMemo()`.
+| Feature | HTTP route |
+|---|---|
+| Sign up | `POST /api/auth/signup` |
+| Login | `POST /api/auth/login` |
+| Refresh access token | `POST /api/auth/refresh` (HttpOnly cookie) |
+| Logout | `POST /api/auth/logout` |
+| Current profile | `GET /api/user/profile` |
+| Start skill quiz | `POST /api/path/testSkills` |
+| Submit assessment/feasibility | `POST /api/path/feasibility` |
+| Generate roadmap chunk | `POST /api/path/roadmap?startDay=1&days=7` |
+| List goals | `GET /api/path/goals` |
+| Get roadmap days | `GET /api/path/roadmap/{goalId}/days` |
+| Get lesson | `GET /api/path/roadmap/{goalId}/day/{dayNumber}/lesson` |
+| Complete day | `PATCH /api/path/roadmap/{goalId}/day/{dayNumber}/complete` |
+| Mentor chat | `POST /api/path/chat` |
 
-### 2. JWT Access Token Auto-Refresh Without UX Disruption
-Any API call could fail mid-session with a 401 when the access token expires (100 min). Rather than logging the user out, `axiosClient.jsx` silently refreshes using the HttpOnly cookie and retries — completely transparent to the user.
+The assessment request uses `goal`, `currentLevel`, `timePerDay`, and `duration` (months). The frontend grades the quiz using the `correct_answer` values returned by the current quiz DTO and sends `{ score, assignedLevel }` to the feasibility endpoint. `assignedLevel` is derived from the score bands: 0–49% Beginner, 50–79% Intermediate, 80–100% Advanced.
 
-### 3. OAuth2 Redirect Flow in SPA Context
-Social login (Google/GitHub) performs a full-page redirect to the backend, which then redirects to `/auth/success?token=xxx`. The `Success.jsx` page extracts the JWT from query params, stores it in `localStorage`, and uses `useNavigate()` to enter the SPA — preserving the single-page app context.
+## 4. End-to-end application flow
 
-### 4. Phase State Machine in AIDashboard
-The AI tutoring pipeline has 6 distinct phases each with different state requirements. Implemented as a numbered phase state with centralized state storage in `AIDashBoard.jsx`, passing data down to child phase components via props — avoiding excessive context or Redux complexity.
+1. Create an account or sign in.
+2. Enter a learning goal, current level, daily study time, and duration.
+3. Complete the generated multiple-choice skill assessment.
+4. Review the feasibility calculation.
+5. Generate the first seven roadmap days.
+6. Open a day as an article-style lesson.
+7. Ask the lesson-aware AI mentor questions.
+8. Complete a quiz, coding, or activity task and mark the day complete.
+9. Generate additional seven-day roadmap chunks when required.
+
+## 5. Features and current backend boundaries
+
+### Lesson library
+
+The Explore page is a technical-article-style library built from each user's generated roadmap days. The selected lesson is loaded from the existing lesson endpoint. The current backend does not expose a separate public blog catalogue or blog CRUD API, so the frontend does not invent one.
+
+### Coding workspace
+
+CODING tasks open in Monaco Editor with language detection, reset, copy, and local draft saving. The current backend does not expose a code execution or grading endpoint. The UI therefore does not pretend that code can be run; it clearly explains that a sandboxed code-runner service must be added for execution.
+
+### Mentor streaming
+
+The current repository exposes the synchronous `POST /api/path/chat` endpoint. The frontend uses that endpoint by default. An SSE client is included and can be enabled with `VITE_ENABLE_CHAT_STREAMING=true` only after the backend `/api/path/chat/stream` endpoint is implemented, protected, and deployed. The frontend does not assume that an unmerged streaming endpoint already exists.
+
+### Task persistence
+
+Coding drafts and activity notes are stored in the current browser's local storage. The existing backend supports marking a roadmap day complete but does not expose per-task submission/history endpoints.
+
+### OAuth
+
+Google and GitHub sign-in buttons direct the browser to `/oauth2/authorization/google` and `/oauth2/authorization/github` on the configured Gateway. The OAuth success page handles the current backend redirect query parameters and removes the token from the visible URL after storing it.
+
+## 6. Security notes
+
+- Access tokens are stored in local storage to match the current backend's bearer-token API.
+- Refresh tokens remain in the backend-managed HttpOnly cookie; JavaScript never reads them.
+- API requests include credentials so the refresh cookie can be sent.
+- For production, serve the frontend and Gateway over HTTPS and configure the backend refresh cookie as Secure.
+- Do not commit `.env` or credentials.
+
+## 7. Important backend assumptions
+
+- Gateway default port is `8080`.
+- Gateway CORS allows `http://localhost:5173` in the current local setup. Add the real frontend origin to the deployed Gateway CORS configuration.
+- `/api/user/profile` returns an object containing at least `name` and `email` (the frontend tolerates missing fields).
+- The AI quiz response includes `quiz[]`, `options`, and `correct_answer` as shown by the current backend DTO.
+- The lesson endpoint returns `title`, `subTopics`, `content`, `taskType`, `taskData`, and fallback/degraded flags.
+
+If any backend field name changes, update the normalizer in the relevant page/API module rather than hardcoding data into the UI.

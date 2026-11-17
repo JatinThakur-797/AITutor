@@ -13,7 +13,9 @@ import com.path.repository.UserGoalRepo;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +35,7 @@ public class GoalService {
     private final UserGoalRepo goalRepo;
     private final RoadmapRepo roadmapRepo;
     private final DayPlanRepo dayPlanRepo;
+    private final AIStreamingClient aiStreamingClient;
 
     private final RoadmapService roadmapService;
 
@@ -339,19 +342,7 @@ public class GoalService {
     public Map<String, String> askMentor(
             Map<String, String> body) {
 
-        String message = body.get("message");
-        String lessonTitle = body.get("lessonTitle");
-        String lessonContent = body.get("lessonContent");
-
-        if (message == null || message.isBlank()) {
-            throw new RuntimeException("Message cannot be empty");
-        }
-
-        String prompt = prompts.buildChatPrompt(
-                message,
-                lessonTitle,
-                lessonContent
-        );
+        String prompt = buildMentorPrompt(body);
 
         String aiResponse = aiService.askQuestion(prompt);
 
@@ -360,6 +351,87 @@ public class GoalService {
         response.put("response", aiResponse);
 
         return response;
+    }
+
+
+// =========================================
+// AI MENTOR CHAT - STREAMING RESPONSE
+// =========================================
+
+    public Flux<ServerSentEvent<String>> streamMentor(
+            Map<String, String> body,
+            UUID userId) {
+
+        if (userId == null) {
+            return Flux.error(
+                    new IllegalArgumentException(
+                            "Authenticated user is required"
+                    )
+            );
+        }
+
+        String prompt = buildMentorPrompt(body);
+
+        return aiStreamingClient.stream(prompt);
+    }
+
+
+// =========================================
+// SHARED MENTOR PROMPT BUILDER
+// =========================================
+
+    private String buildMentorPrompt(
+            Map<String, String> body) {
+
+        if (body == null) {
+            throw new IllegalArgumentException(
+                    "Chat request cannot be empty"
+            );
+        }
+
+        String message = body.get("message");
+
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Message cannot be empty"
+            );
+        }
+
+        if (message.length() > 4000) {
+            throw new IllegalArgumentException(
+                    "Message cannot exceed 4000 characters"
+            );
+        }
+
+        String lessonTitle = body.getOrDefault(
+                "lessonTitle",
+                "Current lesson"
+        );
+
+        String lessonContent = body.getOrDefault(
+                "lessonContent",
+                ""
+        );
+
+        if (lessonTitle == null || lessonTitle.isBlank()) {
+            lessonTitle = "Current lesson";
+        }
+
+        if (lessonContent == null) {
+            lessonContent = "";
+        }
+
+        if (lessonContent.length() > 20000) {
+            throw new IllegalArgumentException(
+                    "Lesson context cannot exceed 20000 characters"
+            );
+        }
+
+        return prompts.buildChatPrompt(
+                message,
+                lessonTitle,
+                lessonContent
+        );
     }
 
 

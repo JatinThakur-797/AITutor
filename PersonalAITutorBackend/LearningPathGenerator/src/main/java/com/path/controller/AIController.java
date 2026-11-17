@@ -10,8 +10,12 @@ import com.path.service.LessonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -174,5 +178,52 @@ public class AIController {
         return ResponseEntity.ok(
                 learningPathService.getAllPaths(userId)
         );
+    }
+
+    // =========================================
+// AI MENTOR CHAT - SSE STREAMING
+// =========================================
+
+    @PostMapping(
+            value = "/chat/stream",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public ResponseEntity<Flux<ServerSentEvent<String>>> streamMentor(
+            @RequestBody Map<String, String> body,
+            @RequestHeader("X-User-Id") UUID userId) {
+
+        Flux<ServerSentEvent<String>> stream =
+                goalService.streamMentor(body, userId)
+
+                        .onErrorResume(error -> {
+
+                            // Do not send internal exceptions to the browser.
+                            return Flux.just(
+                                    ServerSentEvent.<String>builder(
+                                                    "AI mentor is temporarily unavailable. Please try again."
+                                            )
+                                            .event("error")
+                                            .build()
+                            );
+                        });
+
+        return ResponseEntity.ok()
+
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+
+                .header(
+                        HttpHeaders.CACHE_CONTROL,
+                        "no-cache"
+                )
+
+                // Helps avoid reverse-proxy buffering on deployments
+                // that support this header.
+                .header(
+                        "X-Accel-Buffering",
+                        "no"
+                )
+
+                .body(stream);
     }
 }

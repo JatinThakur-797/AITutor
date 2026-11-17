@@ -4,6 +4,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 @Service
 public class AIService {
@@ -38,7 +39,23 @@ public class AIService {
 
         return response;
     }
+    public Flux<String> streamContent(String prompt) {
 
+        if (prompt == null || prompt.isBlank()) {
+            throw new IllegalArgumentException(
+                    "AI prompt must not be empty"
+            );
+        }
+
+        return chatClient
+                .prompt()
+                .user(prompt)
+                .stream()
+                .content()
+                .filter(token ->
+                        token != null && !token.isEmpty()
+                );
+    }
     public String generateJsonContent(String prompt) {
         if (prompt == null || prompt.isBlank()) {
             throw new IllegalArgumentException("AI prompt must not be empty");
