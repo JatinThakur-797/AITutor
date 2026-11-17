@@ -48,7 +48,7 @@ class AIServiceQuizParsingTest {
                 }
                 """;
 
-        when(aiClient.generatePath(anyString())).thenReturn(jsonWithArrayOptions);
+        when(aiClient.generateJson(anyString())).thenReturn(jsonWithArrayOptions);
 
         QuizResponse response = aiService.generateQuiz("dummy prompt");
 
@@ -82,7 +82,7 @@ class AIServiceQuizParsingTest {
                 }
                 """;
 
-        when(aiClient.generatePath(anyString())).thenReturn(jsonSingleObjectRoadmap);
+        when(aiClient.generateJson(anyString())).thenReturn(jsonSingleObjectRoadmap);
 
         RoadmapResponse response = aiService.generateRoadmap("dummy prompt");
 
@@ -97,7 +97,7 @@ class AIServiceQuizParsingTest {
     @Test
     @DisplayName("Downstream sentinel response yields degraded fallback with degraded: true")
     void downstreamSentinelReturnsDegradedFallback() {
-        when(aiClient.generatePath(anyString())).thenReturn(AIClientFallbackFactory.SENTINEL_FALLBACK);
+        when(aiClient.generateJson(anyString())).thenReturn(AIClientFallbackFactory.SENTINEL_FALLBACK);
 
         QuizResponse quiz = aiService.generateQuiz("dummy prompt");
 
@@ -111,7 +111,7 @@ class AIServiceQuizParsingTest {
     @Test
     @DisplayName("Malformed/corrupted JSON yields degraded fallback instead of throwing 500")
     void malformedJsonYieldsDegradedFallback() {
-        when(aiClient.generatePath(anyString())).thenReturn("This is not valid JSON at all { bad syntax");
+        when(aiClient.generateJson(anyString())).thenReturn("This is not valid JSON at all { bad syntax");
 
         assertDoesNotThrow(() -> {
             QuizResponse quiz = aiService.generateQuiz("dummy prompt");

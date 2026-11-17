@@ -538,29 +538,21 @@ public class AIService {
     }
 
     private JsonNode parseJsonNode(String response) {
-
         if (isDownstreamFailure(response)) {
-            throw new IllegalStateException(
-                    "AI service returned an empty or failed response"
-            );
+            throw new IllegalStateException("AI service returned an empty or failed response");
         }
 
         try {
-            JsonNode root = mapper.readTree(response);
+            String cleaned = stripOuterMarkdown(response);
+            JsonNode root = mapper.readTree(cleaned);
 
             if (root == null || !root.isObject()) {
-                throw new IllegalArgumentException(
-                        "AI response must be a JSON object"
-                );
+                throw new IllegalArgumentException("AI response must be a JSON object");
             }
 
             return root;
-
         } catch (Exception exception) {
-            throw new IllegalArgumentException(
-                    "AI returned invalid JSON",
-                    exception
-            );
+            throw new IllegalArgumentException("AI returned invalid JSON", exception);
         }
     }
 
