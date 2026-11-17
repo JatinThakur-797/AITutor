@@ -34,7 +34,13 @@ public class AIController {
                 prompt == null ? 0 : prompt.length(),
                 response == null ? 0 : response.length()
         );
-
+        log.info(
+                "Lesson format: open={}, close={}, taskOpen={}, taskClose={}",
+                response.contains("<LESSON>"),
+                response.contains("</LESSON>"),
+                response.contains("<TASK>"),
+                response.contains("</TASK>")
+        );
         return response;
     }
 
