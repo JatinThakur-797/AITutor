@@ -17,4 +17,6 @@ public class FeasibilityResponse {
     private String reason;
 
     private Boolean degraded = false;
+
+    private String message;
 }
