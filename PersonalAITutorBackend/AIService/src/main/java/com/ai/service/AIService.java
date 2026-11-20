@@ -28,10 +28,10 @@ public class AIService {
 
     private final ChatClient chatClient;
 
-    @Value("${ai.groq.primary-model:llama-3.3-70b-versatile}")
+    @Value("${ai.groq.primary-model}")
     private String primaryModel;
 
-    @Value("${ai.groq.fallback-models:llama-3.1-8b-instant}")
+    @Value("${ai.groq.fallback-models}")
     private String fallbackModelsRaw;
 
     private List<String> modelChain = List.of();
