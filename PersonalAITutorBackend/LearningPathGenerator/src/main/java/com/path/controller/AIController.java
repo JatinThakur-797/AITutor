@@ -1,4 +1,3 @@
-
 package com.path.controller;
 
 import com.path.dto.*;
@@ -54,10 +53,12 @@ public class AIController {
     @PostMapping("/feasibility")
     public ResponseEntity<FeasibilityResponse> checkFeasibility(
             @RequestBody Report report,
+            @RequestParam(required = false) UUID goalId,
             @RequestHeader("X-User-Id") UUID userId) {
 
+        System.out.println("Requset arived at feasiblity");
         FeasibilityResponse response =
-                goalService.checkFeasibility(report, userId);
+                goalService.checkFeasibility(report, userId, goalId);
 
         return ResponseEntity.ok(response);
     }
@@ -70,18 +71,20 @@ public class AIController {
     @PostMapping("/roadmap")
     public ResponseEntity<RoadmapResponse> generateRoadmap(
             @RequestHeader("X-User-Id") UUID userId,
+            @RequestParam(required = false) UUID goalId,
             @RequestParam int startDay,
             @RequestParam int days) {
-
+        System.out.println("User id "+ userId + "Goad id :" + goalId + " startDay :" + startDay + " " +
+                " End :" + days );
         RoadmapResponse response =
-                goalService.generateRoadmap(userId, startDay, days);
+                goalService.generateRoadmap(userId, goalId, startDay, days);
 
         return ResponseEntity.ok(response);
     }
 
 
     // =========================================
-    // GET ALL GOALS
+    // GET ALL GOALS & SINGLE GOAL DETAILS
     // =========================================
 
     @GetMapping("/goals")
@@ -92,6 +95,16 @@ public class AIController {
                 goalService.getAllGoals(userId);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/goals/{goalId}")
+    public ResponseEntity<?> getGoalDetails(
+            @PathVariable UUID goalId,
+            @RequestHeader("X-User-Id") UUID userId) {
+
+        return ResponseEntity.ok(
+                goalService.getGoalDetails(goalId, userId)
+        );
     }
 
 
@@ -120,7 +133,7 @@ public class AIController {
     // =========================================
 
     @GetMapping("/roadmap/{goalId}/days")
-    public ResponseEntity<Map<String, Object>> getRoadmapDays(
+    public ResponseEntity<?> getRoadmapDays(
             @PathVariable UUID goalId,
             @RequestHeader("X-User-Id") UUID userId) {
 
@@ -157,7 +170,7 @@ public class AIController {
     // =========================================
 
     @PostMapping("/chat")
-    public ResponseEntity<Map<String, String>> askMentor(
+    public ResponseEntity<?> askMentor(
             @RequestBody Map<String, String> body) {
 
         Map<String, String> response =
@@ -181,8 +194,8 @@ public class AIController {
     }
 
     // =========================================
-// AI MENTOR CHAT - SSE STREAMING
-// =========================================
+    // AI MENTOR CHAT - SSE STREAMING
+    // =========================================
 
     @PostMapping(
             value = "/chat/stream",
@@ -195,35 +208,35 @@ public class AIController {
 
         Flux<ServerSentEvent<String>> stream =
                 goalService.streamMentor(body, userId)
-
-                        .onErrorResume(error -> {
-
-                            // Do not send internal exceptions to the browser.
-                            return Flux.just(
-                                    ServerSentEvent.<String>builder(
-                                                    "AI mentor is temporarily unavailable. Please try again."
-                                            )
-                                            .event("error")
-                                            .build()
-                            );
-                        });
-
+                        .onErrorResume(error -> Flux.just(
+                                ServerSentEvent.<String>builder(
+                                                "AI mentor is temporarily unavailable. Please try again."
+                                        )
+                                        .event("error")
+                                        .build()
+                        ));
+        for (ServerSentEvent<String> event : stream.toIterable()) {
+            System.out.println("Data: " + event.data());
+            // Infinite SSE streams require a manual break condition
+            if ("DONE".equals(event.data())) {
+                break;
+            }
+        }
         return ResponseEntity.ok()
-
                 .contentType(MediaType.TEXT_EVENT_STREAM)
-
-                .header(
-                        HttpHeaders.CACHE_CONTROL,
-                        "no-cache"
-                )
-
-                // Helps avoid reverse-proxy buffering on deployments
-                // that support this header.
-                .header(
-                        "X-Accel-Buffering",
-                        "no"
-                )
-
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache")
+                .header("X-Accel-Buffering", "no")
                 .body(stream);
+    }
+    @DeleteMapping("/goals/{goalId}")
+    public ResponseEntity<?> deleteGoal(
+            @RequestHeader("X-User-Id") UUID userId,
+            @PathVariable UUID goalId
+    ) {
+        goalService.deleteGoal(userId, goalId);
+        return ResponseEntity.ok(Map.of(
+                "deleted", true,
+                "goalId", goalId.toString()
+        ));
     }
 }
