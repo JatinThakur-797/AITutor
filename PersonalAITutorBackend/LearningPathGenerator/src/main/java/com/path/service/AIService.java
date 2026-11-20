@@ -28,7 +28,8 @@ import java.util.regex.Pattern;
 public class AIService {
     private static final Logger log = LoggerFactory.getLogger(AIService.class);
 
-    public static final String DEGRADED_MESSAGE = "The tutor is briefly unavailable — showing a starter set. Retry in a few seconds.";
+    public static final String DEGRADED_MESSAGE = "The AI service is currently unavailable or timed out. Please verify AIService is running and retry.";
+    private static final int MAX_ATTEMPTS = 3;
 
     private final AIClient aiClient;
     private final ObjectMapper mapper;
@@ -40,270 +41,292 @@ public class AIService {
     }
 
     // ──────────────────────────────────────────────
-    // QUIZ
+    // QUIZ (WITH AUTOMATIC RETRY & JSON RECOVERY)
     // ──────────────────────────────────────────────
     public QuizResponse generateQuiz(String prompt) {
-        try {
-            String response = aiClient.generateJson(prompt);
+        String currentPrompt = prompt;
 
-            log.debug(
-                    "Quiz AI response received. Characters: {}",
-                    response == null ? 0 : response.length()
-            );
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                String response = aiClient.generateJson(currentPrompt);
 
-            if (isDownstreamFailure(response)) {
-                return buildDegradedQuiz(null);
-            }
+                log.debug(
+                        "Quiz AI response received (attempt {}/{}). Characters: {}",
+                        attempt,
+                        MAX_ATTEMPTS,
+                        response == null ? 0 : response.length()
+                );
 
-            JsonNode root = parseJsonNode(response);
-            JsonNode quizArray = root.get("quiz");
+                if (isDownstreamFailure(response)) {
+                    throw new IllegalStateException("Downstream AI failure on attempt " + attempt);
+                }
 
-            if (quizArray != null && quizArray.isArray()) {
-                for (JsonNode question : quizArray) {
-                    JsonNode optionsNode = question.get("options");
-                    if (optionsNode != null && optionsNode.isArray()) {
-                        ObjectNode newOptions = mapper.createObjectNode();
-                        char key = 'A';
-                        for (JsonNode opt : optionsNode) {
-                            newOptions.put(String.valueOf(key++), opt.asText());
+                JsonNode root = parseJsonNode(response);
+                JsonNode quizArray = root.get("quiz");
+
+                if (quizArray != null && quizArray.isArray()) {
+                    for (JsonNode question : quizArray) {
+                        JsonNode optionsNode = question.get("options");
+                        if (optionsNode != null && optionsNode.isArray()) {
+                            ObjectNode newOptions = mapper.createObjectNode();
+                            char key = 'A';
+                            for (JsonNode opt : optionsNode) {
+                                newOptions.put(String.valueOf(key++), opt.asText());
+                            }
+                            ((ObjectNode) question).set("options", newOptions);
                         }
-                        ((ObjectNode) question).set("options", newOptions);
                     }
                 }
-            }
 
-            QuizResponse quizResponse = mapper.treeToValue(root, QuizResponse.class);
-            if (quizResponse.getQuiz() == null || quizResponse.getQuiz().isEmpty()) {
-                return buildDegradedQuiz(null);
-            }
-            quizResponse.setDegraded(false);
-            return quizResponse;
+                QuizResponse quizResponse = mapper.treeToValue(root, QuizResponse.class);
+                if (quizResponse.getQuiz() == null || quizResponse.getQuiz().isEmpty()) {
+                    throw new IllegalArgumentException("Empty quiz array returned");
+                }
+                quizResponse.setDegraded(false);
+                return quizResponse;
 
-        } catch (Exception e) {
-            log.warn("Quiz generation/parsing failed, returning degraded starter set: {}", e.getMessage());
-            return buildDegradedQuiz(null);
+            } catch (Exception e) {
+                log.warn("Quiz generation attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
+                if (attempt < MAX_ATTEMPTS) {
+                    currentPrompt = prompt + "\n\nCRITICAL: Your previous output was invalid. Return ONLY a single valid JSON object matching the exact schema with no markdown fences.";
+                    sleepBackoff(attempt);
+                }
+            }
         }
+
+        log.error("All {} quiz generation attempts failed; returning degraded fallback.", MAX_ATTEMPTS);
+        return buildDegradedQuiz(null);
     }
 
     // ──────────────────────────────────────────────
-    // FEASIBILITY
+    // FEASIBILITY (WITH AUTOMATIC RETRY & JSON RECOVERY)
     // ──────────────────────────────────────────────
     public FeasibilityResponse checkFeasibility(UserGoal goal) {
-        try {
-            String prompt = prompts.buildFeasibilityPrompt(goal);
-            String response = aiClient.generateJson(prompt);
-            log.debug("RAW FEASIBILITY RESPONSE:\n{}", response);
+        String basePrompt = prompts.buildFeasibilityPrompt(goal);
+        String currentPrompt = basePrompt;
 
-            if (isDownstreamFailure(response)) {
-                return buildDegradedFeasibility(goal);
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                String response = aiClient.generateJson(currentPrompt);
+                log.debug("RAW FEASIBILITY RESPONSE (attempt {}/{}):\n{}", attempt, MAX_ATTEMPTS, response);
+
+                if (isDownstreamFailure(response)) {
+                    throw new IllegalStateException("Downstream AI failure on attempt " + attempt);
+                }
+
+                JsonNode root = parseJsonNode(response);
+
+                FeasibilityResponse feasibilityResponse =
+                        mapper.treeToValue(root, FeasibilityResponse.class);
+                if (feasibilityResponse.getIsFeasible() == null) {
+                    throw new IllegalArgumentException("Missing isFeasible field");
+                }
+                feasibilityResponse.setDegraded(false);
+                return feasibilityResponse;
+
+            } catch (Exception e) {
+                log.warn("Feasibility attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
+                if (attempt < MAX_ATTEMPTS) {
+                    currentPrompt = basePrompt + "\n\nCRITICAL: Return ONLY valid JSON with keys isFeasible, estimatedDaysRequired, expectedOutcome, reason.";
+                    sleepBackoff(attempt);
+                }
             }
-
-            JsonNode root = parseJsonNode(response);
-
-            FeasibilityResponse feasibilityResponse =
-                    mapper.treeToValue(root, FeasibilityResponse.class);
-            feasibilityResponse.setDegraded(false);
-            return feasibilityResponse;
-
-        } catch (Exception e) {
-            log.warn("Feasibility parsing failed, using degraded fallback. Error: {}", e.getMessage());
-            return buildDegradedFeasibility(goal);
         }
+
+        log.error("All {} feasibility attempts failed; returning degraded fallback.", MAX_ATTEMPTS);
+        return buildDegradedFeasibility(goal);
     }
 
     // ──────────────────────────────────────────────
-    // ROADMAP
+    // ROADMAP (WITH AUTOMATIC RETRY & JSON RECOVERY)
     // ──────────────────────────────────────────────
     public RoadmapResponse generateRoadmap(String prompt) {
-        try {
-            String response = aiClient.generateJson(prompt);
-            log.debug("RAW ROADMAP RESPONSE:\n{}", response);
+        String currentPrompt = prompt;
 
-            if (isDownstreamFailure(response)) {
-                return buildDegradedRoadmap(null, 1);
-            }
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                String response = aiClient.generateJson(currentPrompt);
+                log.debug("RAW ROADMAP RESPONSE (attempt {}/{}):\n{}", attempt, MAX_ATTEMPTS, response);
 
-            JsonNode root = parseJsonNode(response);
-            JsonNode roadmapNode = root.get("roadmap");
-
-            if (roadmapNode != null && roadmapNode.isObject()) {
-                ArrayNode arrayNode = mapper.createArrayNode();
-                arrayNode.add(roadmapNode);
-                ((ObjectNode) root).set("roadmap", arrayNode);
-            }
-
-            RoadmapResponse roadmapResponse = mapper.treeToValue(root, RoadmapResponse.class);
-            if (roadmapResponse.getRoadmap() == null || roadmapResponse.getRoadmap().isEmpty()) {
-                return buildDegradedRoadmap(null, 1);
-            }
-            roadmapResponse.setDegraded(false);
-            return roadmapResponse;
-
-        } catch (Exception e) {
-            log.warn("Roadmap parsing failed, returning degraded starter set: {}", e.getMessage());
-            return buildDegradedRoadmap(null, 1);
-        }
-    }
-
-
-    public LessonResponse generateLesson(String prompt) {
-
-        try {
-            String response = aiClient.generatePath(prompt);
-
-            if (isDownstreamFailure(response)) {
-                log.warn("AI service returned a failed lesson response");
-                return buildDegradedLesson();
-            }
-
-            log.info(
-                    "Lesson AI response received. Characters: {}",
-                    response.length()
-            );
-
-            String lessonMarkdown = extractSection(
-                    response,
-                    "<LESSON>",
-                    "</LESSON>"
-            );
-
-            String taskJson = extractSection(
-                    response,
-                    "<TASK>",
-                    "</TASK>"
-            );
-
-            // Support JSON responses as well.
-            if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
-
-                String jsonContent = response.trim();
-
-                if (jsonContent.startsWith("```")) {
-                    jsonContent = jsonContent
-                            .replaceFirst("^```(?:json)?\\s*", "")
-                            .replaceFirst("\\s*```$", "")
-                            .trim();
+                if (isDownstreamFailure(response)) {
+                    throw new IllegalStateException("Downstream AI failure on attempt " + attempt);
                 }
 
-                try {
-                    JsonNode root = mapper.readTree(jsonContent);
+                JsonNode root = parseJsonNode(response);
+                JsonNode roadmapNode = root.get("roadmap");
 
-                    if (root != null && root.isObject()) {
+                if (roadmapNode != null && roadmapNode.isObject()) {
+                    ArrayNode arrayNode = mapper.createArrayNode();
+                    arrayNode.add(roadmapNode);
+                    ((ObjectNode) root).set("roadmap", arrayNode);
+                }
 
-                        JsonNode lessonNode = root.path("lesson");
+                RoadmapResponse roadmapResponse = mapper.treeToValue(root, RoadmapResponse.class);
+                if (roadmapResponse.getRoadmap() == null || roadmapResponse.getRoadmap().isEmpty()) {
+                    throw new IllegalArgumentException("Empty roadmap array returned");
+                }
+                roadmapResponse.setDegraded(false);
+                return roadmapResponse;
 
-                        if (!lessonNode.isTextual()) {
-                            lessonNode = root.path("content");
-                        }
+            } catch (Exception e) {
+                log.warn("Roadmap attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
+                if (attempt < MAX_ATTEMPTS) {
+                    currentPrompt = prompt + "\n\nCRITICAL: Return ONLY valid JSON matching the exact schema with a non-empty 'roadmap' array.";
+                    sleepBackoff(attempt);
+                }
+            }
+        }
 
-                        if (lessonNode.isTextual()) {
-                            lessonMarkdown = lessonNode.asText();
-                        }
+        log.error("All {} roadmap attempts failed; returning degraded fallback.", MAX_ATTEMPTS);
+        return buildDegradedRoadmap(null, 1);
+    }
 
-                        JsonNode taskNode = root.path("task");
+    // ──────────────────────────────────────────────
+    // LESSON (WITH AUTOMATIC RETRY)
+    // ──────────────────────────────────────────────
+    public LessonResponse generateLesson(String prompt) {
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                String response = aiClient.generatePath(prompt);
 
-                        if (!taskNode.isMissingNode()
-                                && !taskNode.isNull()) {
+                if (isDownstreamFailure(response)) {
+                    throw new IllegalStateException("AI service returned a failed lesson response");
+                }
 
-                            taskJson = taskNode.isTextual()
-                                    ? taskNode.asText()
-                                    : taskNode.toString();
-                        }
+                log.info(
+                        "Lesson AI response received (attempt {}). Characters: {}",
+                        attempt,
+                        response.length()
+                );
+
+                String lessonMarkdown = extractSection(
+                        response,
+                        "<LESSON>",
+                        "</LESSON>"
+                );
+
+                String taskJson = extractSection(
+                        response,
+                        "<TASK>",
+                        "</TASK>"
+                );
+
+                if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+                    String jsonContent = response.trim();
+
+                    if (jsonContent.startsWith("```")) {
+                        jsonContent = jsonContent
+                                .replaceFirst("^```(?:json)?\\s*", "")
+                                .replaceFirst("\\s*```$", "")
+                                .trim();
                     }
 
-                } catch (Exception ignored) {
-                    // The response may be ordinary Markdown rather than JSON.
+                    try {
+                        JsonNode root = mapper.readTree(jsonContent);
+
+                        if (root != null && root.isObject()) {
+                            JsonNode lessonNode = root.path("lesson");
+                            if (!lessonNode.isTextual()) {
+                                lessonNode = root.path("content");
+                            }
+                            if (lessonNode.isTextual()) {
+                                lessonMarkdown = lessonNode.asText();
+                            }
+
+                            JsonNode taskNode = root.path("task");
+                            if (!taskNode.isMissingNode() && !taskNode.isNull()) {
+                                taskJson = taskNode.isTextual()
+                                        ? taskNode.asText()
+                                        : taskNode.toString();
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
                 }
-            }
 
-            // Support plain Markdown responses.
-            if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+                if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+                    String plainText = response.trim();
 
-                String plainText = response.trim();
+                    if (!plainText.startsWith("{")
+                            && !plainText.startsWith("```json")
+                            && !plainText.equals(AIClientFallbackFactory.SENTINEL_FALLBACK)) {
 
-                // Avoid treating invalid JSON or code-fenced JSON
-                // as a valid Markdown lesson.
-                if (!plainText.startsWith("{")
-                        && !plainText.startsWith("```json")
-                        && !plainText.equals(
-                        AIClientFallbackFactory.SENTINEL_FALLBACK
-                )) {
+                        plainText = Pattern.compile(
+                                "(?is)<\\s*TASK\\s*>.*?<\\s*/\\s*TASK\\s*>"
+                        ).matcher(plainText).replaceAll("").trim();
 
-                    // Remove a TASK section if present.
-                    plainText = Pattern.compile(
-                            "(?is)<\\s*TASK\\s*>.*?<\\s*/\\s*TASK\\s*>"
-                    ).matcher(plainText).replaceAll("").trim();
-
-                    lessonMarkdown = plainText;
-
-                    log.warn(
-                            "AI omitted LESSON markers. Accepted plain Markdown response."
-                    );
+                        lessonMarkdown = plainText;
+                        log.warn("AI omitted LESSON markers. Accepted plain Markdown response.");
+                    }
                 }
-            }
 
-            if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+                if (lessonMarkdown == null || lessonMarkdown.isBlank()) {
+                    throw new IllegalArgumentException("AI response did not contain usable lesson content");
+                }
 
-                throw new IllegalArgumentException(
-                        "AI response did not contain usable lesson content"
+                LessonResponse result = new LessonResponse();
+                result.setLesson(lessonMarkdown.trim());
+
+                LessonResponse.TaskDTO task = parseLessonTask(taskJson);
+
+                result.setTask(task);
+                result.setDegraded(false);
+
+                log.info(
+                        "Lesson successfully parsed. Characters: {}, task type: {}",
+                        lessonMarkdown.length(),
+                        task.getType()
                 );
+
+                return result;
+
+            } catch (Exception e) {
+                log.warn("Lesson generation attempt {} failed: {}", attempt, e.getMessage());
+                if (attempt < 2) {
+                    sleepBackoff(attempt);
+                }
             }
+        }
 
-            LessonResponse result = new LessonResponse();
+        return buildDegradedLesson();
+    }
 
-            result.setLesson(lessonMarkdown.trim());
-
-            LessonResponse.TaskDTO task = parseLessonTask(taskJson);
-
-            result.setTask(task);
-            result.setDegraded(false);
-
-            log.info(
-                    "Lesson successfully parsed. Characters: {}, task type: {}",
-                    lessonMarkdown.length(),
-                    task.getType()
-            );
-
-            return result;
-
-        } catch (Exception e) {
-
-            log.error(
-                    "Lesson generation failed. Reason: {}",
-                    e.getMessage()
-            );
-
-            return buildDegradedLesson();
+    private void sleepBackoff(int attempt) {
+        try {
+            Thread.sleep(400L * attempt);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
-    private String extractSection(
-            String response,
-            String startMarker,
-            String endMarker) {
-
+    private String extractSection(String response, String startMarker, String endMarker) {
         if (response == null || response.isBlank()) {
             return null;
         }
 
-        String tagName = startMarker
-                .replace("<", "")
-                .replace(">", "");
+        String tagName = startMarker.replace("<", "").replace(">", "");
+        String openRegex = "(?i)<\\s*" + Pattern.quote(tagName) + "\\s*>";
+        String closeRegex = "(?i)<\\s*/\\s*" + Pattern.quote(tagName) + "\\s*>";
 
-        String regex = "(?is)<\\s*" +
-                Pattern.quote(tagName) +
-                "\\s*>(.*?)<\\s*/\\s*" +
-                Pattern.quote(tagName) +
-                "\\s*>";
+        Matcher openMatcher = Pattern.compile(openRegex).matcher(response);
+        if (!openMatcher.find()) {
+            return null;
+        }
+        int contentStart = openMatcher.end();
 
-        Matcher matcher = Pattern.compile(regex).matcher(response);
+        Matcher closeMatcher = Pattern.compile(closeRegex).matcher(response);
+        int contentEnd = -1;
+        while (closeMatcher.find()) {
+            if (closeMatcher.start() >= contentStart) {
+                contentEnd = closeMatcher.start();
+            }
+        }
 
-        if (!matcher.find()) {
+        if (contentEnd == -1) {
             return null;
         }
 
-        String content = matcher.group(1).trim();
-
+        String content = response.substring(contentStart, contentEnd).trim();
         return content.isBlank() ? null : content;
     }
 
@@ -315,8 +338,8 @@ public class AIService {
                 throw new IllegalArgumentException("Missing TASK section");
             }
 
-            JsonNode root = mapper.readTree(taskJson);
-
+            String cleanedTask = stripOuterMarkdown(taskJson);
+            JsonNode root = mapper.readTree(cleanedTask);
             String type = root.path("type").asText("ACTIVITY");
             JsonNode contentNode = root.path("content");
 
@@ -343,22 +366,18 @@ public class AIService {
 
             task.setType(type.toUpperCase());
             task.setContent(content);
-
             return task;
 
         } catch (Exception e) {
             log.warn("Assessment parsing failed: {}", e.getMessage());
-
             task.setType("ACTIVITY");
             task.setContent(Map.of(
                     "instructions",
                     "Review the lesson and practice its concepts in your IDE."
             ));
-
             return task;
         }
     }
-
 
     // ──────────────────────────────────────────────
     // DEGRADED BUILDERS
@@ -386,6 +405,7 @@ public class AIService {
                 "D", "To compile source code into machine binaries"
         ));
         q1.setCorrect_answer("A");
+        q1.setExplanation("Variables name memory locations so programs can store, read, and update data during execution.");
 
         QuizResponse.Question q2 = new QuizResponse.Question();
         q2.setId(2);
@@ -399,6 +419,7 @@ public class AIService {
                 "D", "Hash Map"
         ));
         q2.setCorrect_answer("B");
+        q2.setExplanation("A Queue processes elements in the exact order they arrive (First-In, First-Out), whereas a Stack is Last-In, First-Out (LIFO).");
 
         QuizResponse.Question q3 = new QuizResponse.Question();
         q3.setId(3);
@@ -412,6 +433,7 @@ public class AIService {
                 "D", "O(n log n)"
         ));
         q3.setCorrect_answer("C");
+        q3.setExplanation("Each comparison in a balanced BST halves the remaining search space, resulting in O(log n) lookup time.");
 
         fallback.setQuiz(List.of(q1, q2, q3));
         return fallback;
@@ -466,6 +488,7 @@ public class AIService {
         fallback.setExpectedOutcome("foundation");
         fallback.setReason(DEGRADED_MESSAGE);
         fallback.setDegraded(true);
+        fallback.setMessage(DEGRADED_MESSAGE);
         return fallback;
     }
 
@@ -528,15 +551,6 @@ public class AIService {
         return "{}";
     }
 
-    private String sanitize(String response) {
-        if (response == null) return "{}";
-        response = response
-                .replaceAll("(?i)```json", "")
-                .replaceAll("```", "")
-                .trim();
-        return extractJson(response);
-    }
-
     private JsonNode parseJsonNode(String response) {
         if (isDownstreamFailure(response)) {
             throw new IllegalStateException("AI service returned an empty or failed response");
@@ -554,15 +568,6 @@ public class AIService {
         } catch (Exception exception) {
             throw new IllegalArgumentException("AI returned invalid JSON", exception);
         }
-    }
-
-    private String extractJson(String response) {
-        int start = response.indexOf("{");
-        int end = response.lastIndexOf("}");
-        if (start != -1 && end != -1 && end > start) {
-            return response.substring(start, end + 1);
-        }
-        return "{}";
     }
 
     public String askQuestion(String prompt) {
