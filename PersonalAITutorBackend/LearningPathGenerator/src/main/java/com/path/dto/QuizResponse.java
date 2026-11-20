@@ -3,6 +3,7 @@ package com.path.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -11,7 +12,7 @@ public class QuizResponse {
 
     private String goal;
     private String level_assessed;
-    private java.util.List<Question> quiz;
+    private List<Question> quiz;
     private Boolean degraded = false;
     private String message;
 
@@ -21,8 +22,9 @@ public class QuizResponse {
         private int id;
         private String question;
         private String difficulty;
-        private Map<String, String> options;   // KEY FIX
+        private Map<String, String> options;
         private String correct_answer;
         private String concept;
+        private String explanation;
     }
 }
