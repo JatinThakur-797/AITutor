@@ -12,6 +12,13 @@ import { getErrorMessage } from "../api/client";
 import { learningApi } from "../api/learning";
 import { Alert, Button, Card, Field, PageHeading } from "../components/UI";
 
+const GOAL_PRESETS = [
+  "Become a Java Spring Boot Backend Engineer",
+  "Master React.js & Modern Frontend Architecture",
+  "Crack Data Structures & Algorithms Interviews",
+  "Build Production AI & RAG Applications",
+];
+
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -22,6 +29,7 @@ export default function OnboardingPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const update = (key) => (event) =>
     setForm((prev) => ({
       ...prev,
@@ -36,13 +44,28 @@ export default function OnboardingPage() {
     setError("");
     setLoading(true);
     try {
-      const quiz = await learningApi.startAssessment({
+      const response = await learningApi.startAssessment({
         ...form,
         timePerDay: Number(form.timePerDay),
         duration: Number(form.duration),
       });
+
+      let goalId = response?.goalId || response?.id;
+      if (!goalId) {
+        const goals = await learningApi.getGoals();
+        const latest = [...(goals || [])].sort(
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+        )[0];
+        goalId = latest?.goalId;
+      }
+
       navigate("/app/quiz", {
-        state: { quiz, goal: form.goal, currentLevel: form.currentLevel },
+        state: {
+          quiz: response,
+          goalId,
+          goal: form.goal,
+          currentLevel: form.currentLevel,
+        },
       });
     } catch (err) {
       setError(getErrorMessage(err, "Could not start your assessment."));
@@ -78,7 +101,7 @@ export default function OnboardingPage() {
           <form className="stack-form" onSubmit={submit}>
             <Field
               label="Your goal"
-              hint="Example: Become a Java backend developer, master React, or learn data structures."
+              hint="Pick a preset below or describe your own target role or skill."
             >
               <textarea
                 className="input textarea"
@@ -90,6 +113,20 @@ export default function OnboardingPage() {
                 minLength={5}
                 maxLength={180}
               />
+              <div className="goal-presets">
+                {GOAL_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className={`preset-chip ${form.goal === preset ? "active" : ""}`}
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, goal: preset }))
+                    }
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
             </Field>
             <Field label="How would you describe your current level?">
               <select

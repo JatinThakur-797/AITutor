@@ -1,219 +1,234 @@
 import {
+  AlertTriangle,
+  ArrowLeft,
   ArrowRight,
-  CalendarDays,
+  Award,
+  Calendar,
   CheckCircle2,
   Clock3,
-  Compass,
-  Gauge,
   Sparkles,
-  Target,
+  Target
 } from "lucide-react";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getErrorMessage } from "../api/client";
 import { learningApi } from "../api/learning";
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  PageHeading,
-  StatCard,
-} from "../components/UI";
+import { Alert, Badge, Button, Card } from "../components/UI";
+
+const FEASIBILITY_STORAGE_KEY = "pathai-latest-assessment";
+
+function readStoredAssessment() {
+  try {
+    const raw = sessionStorage.getItem(FEASIBILITY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function FeasibilityPage() {
+  const location = useLocation();
   const navigate = useNavigate();
-  const { state } = useLocation();
-  const [result, setResult] = useState(state?.result || null);
-  const [loading, setLoading] = useState(false);
+
+  const stored = readStoredAssessment();
+  const goalId = location.state?.goalId || stored?.goalId;
+  const goalTitle =
+    location.state?.goalTitle || stored?.goalTitle || "Your Learning Goal";
+  const feasibility = location.state?.feasibility || stored?.feasibility;
+  const quizSummary = location.state?.quizSummary || stored?.quizSummary;
+
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
-  if (state?.score == null && !result)
+
+  if (!goalId || !feasibility) {
     return (
-      <Card>
-        <h2>No assessment result found</h2>
-        <p>Complete the skill assessment first.</p>
-        <Button onClick={() => navigate("/app/start")}>Start assessment</Button>
-      </Card>
+      <div className="feasibility-page">
+        <Card className="empty-state">
+          <div className="empty-icon">
+            <Target size={24} />
+          </div>
+          <h3>No assessment result found</h3>
+          <p>
+            Complete the skill assessment first to see your feasibility report.
+          </p>
+          <div className="feasibility-empty-actions">
+            <Button onClick={() => navigate("/app/start")}>
+              Start assessment <ArrowRight size={16} />
+            </Button>
+            <Link to="/" className="back-link">
+              <ArrowLeft size={15} /> Back to home
+            </Link>
+          </div>
+        </Card>
+      </div>
     );
+  }
 
-  const score = state?.score ?? result?.score ?? 0;
-  const total = state?.total ?? result?.total ?? 10;
-  const assignedLevel =
-    state?.assignedLevel || result?.assignedLevel || "Beginner";
-  const goal = state?.goal || result?.goal || "Your learning goal";
-  const feasibility = result?.feasibility;
+  const isFeasible = Boolean(feasibility.isFeasible ?? feasibility.feasible);
+  const estimatedDays = feasibility.estimatedDaysRequired ?? 30;
+  const expectedOutcome = feasibility.expectedOutcome || "foundation";
+  const reason =
+    feasibility.reason ||
+    "Your roadmap pacing has been calibrated to your assessed skill level and daily study hours.";
 
-  const generate = async () => {
+  const score = quizSummary?.score ?? 0;
+  const total = quizSummary?.total ?? 10;
+  const assignedLevel = quizSummary?.assignedLevel || "Beginner";
+
+  const handleGenerateRoadmap = async () => {
+    setGenerating(true);
     setError("");
-    setLoading(true);
     try {
-      const data = await learningApi.checkFeasibility({ score, assignedLevel });
-      if (data?.degraded) {
-        setError(
-          data.message ||
-            "The AI feasibility check is temporarily unavailable. Retry before generating your roadmap.",
-        );
-        return;
-      }
-      setResult({ score, total, assignedLevel, goal, feasibility: data });
-    } catch (err) {
-      setError(
-        getErrorMessage(err, "Could not complete the feasibility check."),
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createRoadmap = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const data = await learningApi.generateRoadmap(1, 7);
-      if (data?.degraded) {
-        setError(
-          data.message ||
-            "The roadmap generator returned fallback content. Please retry.",
-        );
-        return;
-      }
-      const goals = await learningApi.getGoals();
-      const latest = [...(goals || [])].sort(
-        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
-      )[0];
-      if (!latest?.goalId)
-        throw new Error(
-          "The roadmap was generated, but the goal could not be found. Refresh your dashboard.",
-        );
-      navigate(`/app/roadmap/${latest.goalId}`, { replace: true });
+      await learningApi.generateRoadmap(1,7,goalId);
+      navigate(`/app/roadmap/${goalId}`);
     } catch (err) {
       setError(getErrorMessage(err, "Could not generate your roadmap."));
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
   return (
-    <>
-      <PageHeading
-        eyebrow="STEP 03 · YOUR LEARNING PLAN"
-        title="A realistic plan beats a perfect promise."
-        description="Review your skill assessment and see how the target fits your available time."
-      />
-      {!result ? (
-        <div className="feasibility-start">
-          <Card className="assessment-result-card">
-            <div className="result-icon">
-              <Gauge size={25} />
-            </div>
-            <div className="eyebrow">ASSESSMENT COMPLETE</div>
-            <h2>
-              {score} <span>/ {total}</span>
-            </h2>
-            <p>
-              You were assessed at{" "}
-              <Badge tone={assignedLevel === "Advanced" ? "success" : "info"}>
-                {assignedLevel}
-              </Badge>
-            </p>
-            <p className="muted">Goal: {goal}</p>
-            <Button onClick={generate} loading={loading}>
-              Check learning feasibility <ArrowRight size={16} />
-            </Button>
-          </Card>
-          <Card className="result-side-note">
-            <Sparkles size={20} />
-            <h3>What happens in this step?</h3>
-            <p>
-              PathAI compares your assessed level, daily study time, and
-              duration. It then estimates the learning timeline and sets a
-              suitable outcome.
-            </p>
-          </Card>
-        </div>
-      ) : (
-        <>
-          {error ? <Alert type="error">{error}</Alert> : null}
-          <Card className="feasibility-hero">
-            <div className="feasibility-copy">
-              <div className="eyebrow">YOUR FEASIBILITY REPORT</div>
-              <h2>
-                {feasibility?.isFeasible
-                  ? "Your goal looks achievable."
-                  : "Your goal needs a more focused plan."}
-              </h2>
-              <p>
-                {feasibility?.reason ||
-                  "Your plan has been evaluated against your current level and available time."}
-              </p>
-              <div className="feasibility-tags">
-                <Badge tone={feasibility?.isFeasible ? "success" : "warning"}>
-                  {feasibility?.isFeasible ? "Feasible" : "Needs adjustment"}
-                </Badge>
-                <Badge tone="info">
-                  {feasibility?.expectedOutcome || "foundation"} outcome
-                </Badge>
-              </div>
-            </div>
-            <div className="feasibility-gauge">
-              <div className="gauge-number">
-                {feasibility?.estimatedDaysRequired ?? "—"}
-                <small>estimated days</small>
-              </div>
-              <div className="gauge-ring" />
-            </div>
-          </Card>
-          <div className="stats-grid feasibility-stats">
-            <StatCard
-              icon={CheckCircle2}
-              label="Assessment score"
-              value={`${score}/${total}`}
-              note={`${Math.round((score / total) * 100)}% correct`}
-              tone="green"
-            />
-            <StatCard
-              icon={GraduationCapIcon}
-              label="Assessed level"
-              value={assignedLevel}
-              note="Based on quiz performance"
-              tone="violet"
-            />
-            <StatCard
-              icon={CalendarDays}
-              label="Estimated duration"
-              value={`${feasibility?.estimatedDaysRequired ?? "—"} days`}
-              note="AI-estimated study days"
-              tone="blue"
-            />
-            <StatCard
-              icon={Target}
-              label="Target outcome"
-              value={feasibility?.expectedOutcome || "—"}
-              note="Expected learning result"
-              tone="amber"
-            />
+    <div className="feasibility-page">
+      <div className="page-heading">
+        <div>
+          <Link to="/app/start" className="back-link">
+            <ArrowLeft size={15} /> Retake assessment
+          </Link>
+          <div className="eyebrow" style={{ marginTop: 10 }}>
+            STEP 2 OF 3 · FEASIBILITY &amp; PACING ANALYSIS
           </div>
-          <Card className="roadmap-ready-card">
-            <div className="ready-icon">
-              <Compass size={22} />
-            </div>
-            <div>
-              <h3>Ready to turn this into daily action?</h3>
-              <p>
-                PathAI will generate your first seven days. You can extend the
-                roadmap in weekly chunks as you progress.
-              </p>
-            </div>
-            <Button onClick={createRoadmap} loading={loading}>
-              Generate my roadmap <ArrowRight size={16} />
-            </Button>
-          </Card>
-        </>
-      )}
-    </>
-  );
-}
+          <h1>{goalTitle}</h1>
+          <p>
+            Based on your diagnostic quiz and daily availability, here is your
+            realistic learning plan.
+          </p>
+        </div>
+        <div className="page-heading-action">
+          <Button variant="secondary" onClick={() => navigate("/app/start")}>
+            Adjust goal or hours
+          </Button>
+        </div>
+      </div>
 
-function GraduationCapIcon() {
-  return <Clock3 size={18} />;
+      {error ? <Alert type="error">{error}</Alert> : null}
+
+      <div className="feasibility-start">
+        <Card className="assessment-result-card">
+          <div className="result-icon">
+            <Award size={26} />
+          </div>
+          <div className="eyebrow">DIAGNOSTIC SCORE</div>
+          <h2>
+            {score} <span>/ {total}</span>
+          </h2>
+          <p>
+            Starting Level:{" "}
+            <Badge tone={assignedLevel === "Advanced" ? "success" : "info"}>
+              {assignedLevel}
+            </Badge>
+          </p>
+        </Card>
+
+        <Card className="result-side-note">
+          <Sparkles size={20} />
+          <h3>Pacing Calibration</h3>
+          <p>
+            Your daily hours and current baseline are factored into your
+            estimated timeline before generating day-by-day milestones.
+          </p>
+        </Card>
+      </div>
+
+      <Card className="feasibility-hero" style={{ marginTop: 15 }}>
+        <div className="feasibility-copy">
+          <div className="eyebrow">FEASIBILITY VERDICT</div>
+          <h2>
+            {isFeasible
+              ? "Timeline is realistic"
+              : "Ambitious timeline detected"}
+          </h2>
+          <p>{reason}</p>
+          <div className="feasibility-tags">
+            <Badge tone={isFeasible ? "success" : "warning"}>
+              {isFeasible ? "Feasible" : "Fast-Track Mode"}
+            </Badge>
+            <Badge tone="info">{expectedOutcome}</Badge>
+          </div>
+        </div>
+
+        <div className="feasibility-gauge">
+          <div className="gauge-ring" />
+          <div className="gauge-number">
+            {estimatedDays}
+            <small>EST. DAYS</small>
+          </div>
+        </div>
+      </Card>
+
+      <div className="stats-grid feasibility-stats">
+        <div className="stat-card">
+          <div className="stat-icon tone-violet">
+            <Calendar size={18} />
+          </div>
+          <div>
+            <div className="stat-label">Estimated Duration</div>
+            <div className="stat-value">{estimatedDays} days</div>
+            <div className="stat-note">Target completion window</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon tone-blue">
+            <Target size={18} />
+          </div>
+          <div>
+            <div className="stat-label">Expected Outcome</div>
+            <div className="stat-value" style={{ textTransform: "capitalize" }}>
+              {expectedOutcome}
+            </div>
+            <div className="stat-note">Milestone depth</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon tone-green">
+            <CheckCircle2 size={18} />
+          </div>
+          <div>
+            <div className="stat-label">AI-Assessed Level</div>
+            <div className="stat-value">{assignedLevel}</div>
+            <div className="stat-note">Diagnostic baseline</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon tone-amber">
+            {isFeasible ? <Clock3 size={18} /> : <AlertTriangle size={18} />}
+          </div>
+          <div>
+            <div className="stat-label">Pacing Status</div>
+            <div className="stat-value">
+              {isFeasible ? "On Track" : "Fast-Track"}
+            </div>
+            <div className="stat-note">Schedule alignment</div>
+          </div>
+        </div>
+      </div>
+
+      <Card className="roadmap-ready-card">
+        <div className="ready-icon"></div>
+        <div>
+          <h3>Ready to build your day-by-day roadmap?</h3>
+          <p>
+            Generate structured lessons, tasks, and mentor guidance tailored to
+            your {assignedLevel.toLowerCase()} starting point.
+          </p>
+        </div>
+        <Button onClick={handleGenerateRoadmap} loading={generating}>
+          Generate personalized roadmap <ArrowRight size={16} />
+        </Button>
+      </Card>
+    </div>
+  );
 }
