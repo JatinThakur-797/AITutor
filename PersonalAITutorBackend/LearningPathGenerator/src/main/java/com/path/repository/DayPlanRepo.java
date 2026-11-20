@@ -2,7 +2,9 @@ package com.path.repository;
 
 import com.path.entity.DayPlan;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,4 +25,7 @@ public interface DayPlanRepo extends JpaRepository<DayPlan, Long> {
 
     // Get a specific day (for "open Day 5" action)
     Optional<DayPlan> findByRoadmapIdAndDayNumber(Long roadmapId, Integer dayNumber);
+    @Modifying
+    @Query("DELETE FROM DayPlan d WHERE d.roadmap.id = :roadmapId")
+    void deleteByRoadmapId(@Param("roadmapId") Long roadmapId);
 }
