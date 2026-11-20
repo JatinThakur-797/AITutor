@@ -29,7 +29,6 @@ public class AIController {
     )
     public String generate(@RequestBody String prompt) {
 
-            System.out.println(prompt);
 
         String response = aiService.generateContent(prompt);
 
@@ -97,7 +96,6 @@ public class AIController {
     )
     public String generateJson(@RequestBody String prompt) {
 
-            System.out.println(prompt);
 
         return aiService.generateJsonContent(prompt);
     }
