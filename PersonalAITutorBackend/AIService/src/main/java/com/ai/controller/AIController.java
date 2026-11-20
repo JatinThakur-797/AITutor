@@ -29,6 +29,8 @@ public class AIController {
     )
     public String generate(@RequestBody String prompt) {
 
+            System.out.println(prompt);
+
         String response = aiService.generateContent(prompt);
 
         log.info(
@@ -94,6 +96,9 @@ public class AIController {
             produces = MediaType.TEXT_PLAIN_VALUE
     )
     public String generateJson(@RequestBody String prompt) {
+
+            System.out.println(prompt);
+
         return aiService.generateJsonContent(prompt);
     }
 }
