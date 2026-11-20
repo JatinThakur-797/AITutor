@@ -14,10 +14,8 @@ import {
   Sun,
   X,
 } from "lucide-react";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
@@ -38,13 +36,23 @@ const primaryNav = [
 export default function AppShell() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
   const closeMenu = () => setMobileOpen(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        navigate("/app/explore", { state: { focusSearch: Date.now() } });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
 
   const initials = (user?.name || user?.email || "Student")
     .split(/[\s@]/)
@@ -64,9 +72,13 @@ export default function AppShell() {
             ? "Lesson workspace"
             : location.pathname.startsWith("/app/start")
               ? "Create a learning path"
-              : location.pathname.startsWith("/app/feasibility")
-                ? "Learning assessment"
-                : "Your workspace";
+              : location.pathname.startsWith("/app/quiz")
+                ? "Skill assessment"
+                : location.pathname.startsWith("/app/feasibility")
+                  ? "Feasibility report"
+                  : location.pathname.startsWith("/app/profile")
+                    ? "Account settings"
+                    : "Your workspace";
 
   const handleLogout = async () => {
     try {
@@ -170,7 +182,13 @@ export default function AppShell() {
 
           <p>Your next focused session is more valuable than a perfect plan.</p>
 
-          <button type="button" onClick={() => navigate("/app/start")}>
+          <button
+            type="button"
+            onClick={() => {
+              closeMenu();
+              navigate("/app/start");
+            }}
+          >
             Build a learning path <span>↗</span>
           </button>
         </div>
@@ -229,7 +247,9 @@ export default function AppShell() {
             <button
               type="button"
               className="top-search"
-              onClick={() => navigate("/app/explore")}
+              onClick={() =>
+                navigate("/app/explore", { state: { focusSearch: Date.now() } })
+              }
             >
               <Search size={15} />
               <span>Find a lesson</span>

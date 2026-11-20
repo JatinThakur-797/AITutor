@@ -1,6 +1,6 @@
 import { ArrowUpRight, BookOpen, Clock3, Search, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { getErrorMessage } from "../api/client";
 import { learningApi } from "../api/learning";
 import { Alert, Badge, Card, EmptyState, PageHeading } from "../components/UI";
@@ -13,12 +13,20 @@ const colors = [
 ];
 
 export default function ExplorePage() {
+  const location = useLocation();
+  const searchInputRef = useRef(null);
   const [goals, setGoals] = useState([]);
   const [activeGoalId, setActiveGoalId] = useState("");
   const [days, setDays] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (location.state?.focusSearch) {
+      searchInputRef.current?.focus();
+    }
+  }, [location.state]);
 
   useEffect(() => {
     learningApi
@@ -52,12 +60,15 @@ export default function ExplorePage() {
   const filtered = useMemo(
     () =>
       days.filter((day) =>
-        `${day.main_topic} ${(day.sub_topics || []).join(" ")} ${day.daily_goal || ""}`
+        `${day.main_topic} ${(day.sub_topics || []).join(" ")} ${
+          day.daily_goal || ""
+        }`
           .toLowerCase()
           .includes(query.toLowerCase()),
       ),
     [days, query],
   );
+
   const activeGoal = goals.find(
     (goal) => String(goal.goalId) === String(activeGoalId),
   );
@@ -67,7 +78,7 @@ export default function ExplorePage() {
       <PageHeading
         eyebrow="THE LEARNING LIBRARY"
         title="Explore your next concept."
-        description="A GFG-inspired reading space built from your generated curriculum: topic-led lessons, practical examples, and hands-on tasks."
+        description="Structured technical articles generated from your curriculum—complete with code examples, practice workspaces, and a lesson-aware AI mentor."
       />
       <Card className="library-search-card">
         <div className="library-search-icon">
@@ -80,6 +91,7 @@ export default function ExplorePage() {
         <div className="library-search-input">
           <Search size={16} />
           <input
+            ref={searchInputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search Java, APIs, OOP…"
@@ -189,9 +201,8 @@ export default function ExplorePage() {
       <div className="library-disclaimer">
         <Sparkles size={15} />
         <span>
-          These articles are generated from the learning roadmaps in your
-          account. A separate public blog-management API is not currently part
-          of this backend.
+          Lessons are dynamically synthesized and cached for your active
+          learning roadmaps.
         </span>
       </div>
     </>

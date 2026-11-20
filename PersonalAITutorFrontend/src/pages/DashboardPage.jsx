@@ -1,13 +1,16 @@
 import {
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   CheckCircle2,
   Clock3,
   Flame,
   GraduationCap,
+  LoaderCircle,
   Plus,
   Sparkles,
   Target,
+  Trash2,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -35,6 +38,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // ───── NEW: delete state ─────
+  const [deleteTarget, setDeleteTarget] = useState(null); // { goalId, goal }
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   useEffect(() => {
     let alive = true;
     learningApi
@@ -58,10 +66,11 @@ export default function DashboardPage() {
         }
       })
       .catch((err) => {
-        if (alive)
+        if (alive) {
           setError(
             getErrorMessage(err, "Unable to load your learning overview."),
           );
+        }
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -81,6 +90,64 @@ export default function DashboardPage() {
     : 0;
   const nextDay = days.find((day) => !day.completed) || days[0];
   const displayName = user?.name?.split(" ")[0] || "there";
+
+  const openGoalRoute = (goal) => {
+    if (goal.status === "ROADMAP_GENERATED") {
+      navigate(`/app/roadmap/${goal.goalId}`);
+    } else {
+      navigate("/app/feasibility", {
+        state: { goalId: goal.goalId, goal: goal.goal },
+      });
+    }
+  };
+
+  // ───── NEW: delete handlers ─────
+  const requestDelete = (goal) => {
+    setDeleteError("");
+    setDeleteTarget({ goalId: goal.goalId, goal: goal.goal });
+  };
+
+  const cancelDelete = () => {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    const { goalId } = deleteTarget;
+    setDeleting(true);
+    setDeleteError("");
+
+    const previousGoals = goals;
+    setGoals((prev) => prev.filter((g) => String(g.goalId) !== String(goalId)));
+
+    try {
+      await learningApi.deleteGoal(goalId);
+      setDeleteTarget(null);
+
+      if (String(activeGoal?.goalId) === String(goalId)) {
+        setDays([]);
+      }
+    } catch (err) {
+      setGoals(previousGoals);
+      setDeleteError(
+        getErrorMessage(err, "Could not delete this learning path."),
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Close modal on Escape
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") cancelDelete();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [deleteTarget]);
 
   return (
     <>
@@ -113,7 +180,9 @@ export default function DashboardPage() {
             <Button
               onClick={() =>
                 navigate(
-                  activeGoal ? `/app/roadmap/${activeGoal.goalId}` : "/app/start",
+                  activeGoal
+                    ? `/app/roadmap/${activeGoal.goalId}`
+                    : "/app/start",
                 )
               }
             >
@@ -171,8 +240,12 @@ export default function DashboardPage() {
         <StatCard
           icon={Clock3}
           label="Daily intention"
-          value={activeGoal ? `${activeGoal.duration || "—"} mo` : "Set one"}
-          note="Your target learning window"
+          value={
+            activeGoal
+              ? `${activeGoal.timePerDay || 2}h · ${activeGoal.duration || "—"} mo`
+              : "Set one"
+          }
+          note="Your target learning pace"
           tone="amber"
         />
       </div>
@@ -284,6 +357,7 @@ export default function DashboardPage() {
             </Card>
           )}
         </div>
+
         <div className="dashboard-side-column">
           <Card className="side-panel">
             <div className="panel-heading">
@@ -321,6 +395,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </Card>
+
           <Card className="library-promo">
             <div className="promo-icon">
               <BookOpen size={19} />
@@ -337,6 +412,7 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
       {goals.length > 0 ? (
         <>
           <SectionTitle
@@ -344,14 +420,19 @@ export default function DashboardPage() {
             subtitle="All the goals associated with your account."
           />
           <div className="goal-list">
-            {goals.slice(0, 4).map((goal) => (
-              <Link
-                to={
-                  goal.status === "ROADMAP_GENERATED"
-                    ? `/app/roadmap/${goal.goalId}`
-                    : "/app/start"
-                }
-                className="goal-list-item"
+            {goals.map((goal) => (
+              // ⬇️ CHANGED: <button> → <div role="button"> (nested buttons are invalid HTML)
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openGoalRoute(goal)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openGoalRoute(goal);
+                  }
+                }}
+                className="goal-list-item goal-list-button"
                 key={goal.goalId}
               >
                 <div className="goal-list-icon">
@@ -369,15 +450,79 @@ export default function DashboardPage() {
                     goal.status === "ROADMAP_GENERATED" ? "success" : "warning"
                   }
                 >
-                  {String(goal.status || "Started")
-                    .replaceAll("_", " ")
-                    .toLowerCase()}
+                  {goal.status === "ROADMAP_GENERATED"
+                    ? "Active roadmap"
+                    : "Resume setup"}
                 </Badge>
+
+                {/* ⬇️ NEW: delete button */}
+                <button
+                  type="button"
+                  className="goal-delete-btn"
+                  title="Delete learning path"
+                  aria-label={`Delete ${goal.goal}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    requestDelete(goal);
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <Trash2 size={15} />
+                </button>
+
                 <ArrowRight size={16} className="muted-icon" />
-              </Link>
+              </div>
             ))}
           </div>
         </>
+      ) : null}
+
+      {/* ⬇️ NEW: delete confirmation modal */}
+      {deleteTarget ? (
+        <div className="modal-backdrop" onClick={cancelDelete}>
+          <Card className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="eyebrow">PERMANENT ACTION</div>
+            <h2>Delete this learning path?</h2>
+            <p>
+              <strong>“{deleteTarget.goal}”</strong> and its entire roadmap,
+              lessons, and progress will be permanently removed. This cannot be
+              undone.
+            </p>
+
+            {deleteError ? <Alert type="error">{deleteError}</Alert> : null}
+
+            <div className="delete-modal-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={cancelDelete}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <LoaderCircle size={15} className="spin" /> Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} /> Delete path
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
       ) : null}
     </>
   );
