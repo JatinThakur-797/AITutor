@@ -15,7 +15,7 @@ import requests
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "http://localhost:8083")
-AI_GATEWAY_SECRET = os.getenv("AI_GATEWAY_SECRET", "3b5234cd94a6aaf7618ec79ca4d4ecff21d248d4fd43f3cf")
+AI_GATEWAY_SECRET = os.getenv("AI_GATEWAY_SECRET") or os.getenv("APP_GATEWAY_SECRET") or os.getenv("INTERNAL_SECRET", "")
 
 # Default ~0.55s spacing matches ~2 tokens/sec refill so functional tests don't exhaust the 10-token bucket
 REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "0.55"))

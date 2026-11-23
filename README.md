@@ -221,7 +221,7 @@ The configuration across `.env`, `docker-compose.yml`, and individual service `a
 | `DB_PASSWORD` / `MYSQL_PASSWORD` | `aitutor_password` | MySQL, User-Service, LearningPath | Database user password |
 | `DB_ROOT_PASSWORD` | `root_password` | MySQL | MySQL root administrative password |
 | `DB_URL` | `jdbc:mysql://localhost:3306/aitutor?...` | User-Service, LearningPath | Full JDBC URL (Docker Compose auto-routes to container `mysql:3306`) |
-| `APP_GATEWAY_SECRET` / `INTERNAL_SECRET` | `3b5234cd...` | Gateway, User, LearningPath, AI | Shared zero-trust microservice header secret (`X-Gateway-Secret`) |
+| `APP_GATEWAY_SECRET` / `INTERNAL_SECRET` | `replace_with_secure_random_secret` | Gateway, User, LearningPath, AI | Shared zero-trust microservice header secret (`X-Gateway-Secret`) |
 | `JWT_SECRET` / `APP_JWT_SECRET` | `replace_with_secret_min_32_chars` | Gateway, User-Service | HMAC-SHA512 JWT signing and verification key |
 | `JWT_ISSUER` / `APP_JWT_ISSUER` | `aitutor-user-service` | User-Service | JWT issuer identifier claim |
 | `BASE_URL` / `APP_BASE_URL` | `http://localhost:5173` | User-Service | Frontend client origin for OAuth2 redirect callbacks |
