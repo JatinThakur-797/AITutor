@@ -393,7 +393,7 @@ public class AIService {
         fallback.setGoal(goal != null ? goal : "General Development");
         fallback.setLevel_assessed("Beginner");
         fallback.setDegraded(true);
-        fallback.setMessage(DEGRADED_MESSAGE);
+        fallback.setMessage("The tutor is briefly unavailable — showing a starter set. Retry in a few seconds.");
 
         QuizResponse.Question q1 = new QuizResponse.Question();
         q1.setId(1);
