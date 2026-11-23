@@ -23,12 +23,9 @@ The platform is architected as a reactive microservices system built on **Spring
 - [Learner Workflow](#learner-workflow)
 - [Resilience, Security & Defense-in-Depth](#resilience-security--defense-in-depth)
 - [Automated Test Suite & Benchmark Results](#automated-test-suite--benchmark-results)
-  - [Test Suite Summary](#test-suite-summary)
-  - [Measured Latency & Throughput Matrix](#measured-latency--throughput-matrix)
-  - [Caching & Performance Acceleration](#caching--performance-acceleration)
-  - [Concurrency & Rate Limiting Resilience](#concurrency--rate-limiting-resilience)
-  - [Execution Breakdown (77/77 Verified Tests)](#execution-breakdown-7777-verified-tests)
-  - [How to Run the Python Test Suite](#how-to-run-the-python-test-suite)
+  - [Test Summary](#test-summary)
+  - [Key Performance Benchmarks](#key-performance-benchmarks)
+  - [Running the Test Script](#running-the-test-script)
 - [Configuration & Environment Harmonization](#configuration--environment-harmonization)
 - [Quickstart & Deployment Guide](#quickstart--deployment-guide)
   - [Option A: Docker Compose (Recommended)](#option-a-docker-compose-recommended)
@@ -81,7 +78,7 @@ The platform is architected as a reactive microservices system built on **Spring
              v                                       v                                       v
 +--------------------------+       +-----------------------------------+       +--------------------------+
 |       User-Service       |       |       LearningPathGenerator       |       |        AI-Service        |
-|  http://localhost:8081   |       |       http://localhost:8085       |       |  http://localhost:8083   |
+|  http://localhost:8081   |       |       http://localhost:8082       |       |  http://localhost:8083   |
 |--------------------------|       |-----------------------------------|       |--------------------------|
 | - Email/Pass + OAuth2    |       | - Goals & Quiz Orchestration      |       | - Spring AI 1.1.0        |
 | - JWT Access (HS512)     |       | - Feasibility Analysis            |       | - Groq LLaMA 3.3 70B     |
@@ -118,7 +115,7 @@ The platform is architected as a reactive microservices system built on **Spring
 | **`ServiceRegistry`** | `8761:8761` | Spring Cloud Netflix Eureka | Microservice registry, dynamic service discovery, and heartbeat monitoring. |
 | **`ApiGateway`** | `8080:8080` | Spring Cloud Gateway, Redis, Resilience4j | Single client ingress, JWT verification, Redis token-bucket rate limiting, CORS management, circuit breaking, and secret propagation. |
 | **`User-Service`** | `8081:8081` | Spring Boot, Spring Security, JPA, MySQL | User registration, login, JWT issuance (HS512), HttpOnly cookie management, refresh token rotation, Google & GitHub OAuth2. |
-| **`LearningPathGenerator`** | `8085:8085` | Spring Boot, OpenFeign, JPA, Redis, MySQL | Diagnostic quiz evaluation, feasibility computation, chunked roadmap progression, lesson generation, completion tracking, and mentor routing. |
+| **`LearningPathGenerator`** | `8082:8082` | Spring Boot, OpenFeign, JPA, Redis, MySQL | Diagnostic quiz evaluation, feasibility computation, chunked roadmap progression, lesson generation, completion tracking, and mentor routing. |
 | **`AIService`** | `8083:8083` | Spring AI, Groq OpenAI API, WebFlux | LLM orchestration with primary `llama-3.3-70b-versatile` and fallback models (`llama-3.1-8b-instant`), prompt engineering, and SSE token streaming. |
 | **`PersonalAITutorFrontend`** | `5173:80` | React 19, Vite 7, Monaco Editor, Nginx | Single-page application, interactive roadmap timeline, Monaco code editor, Markdown renderer, and chat UI. |
 | **`MySQL`** | `3306:3306` | MySQL 8.0 Community | Persistent relational data store for user credentials, profiles, learning goals, roadmaps, days, and cached lessons. |
@@ -170,182 +167,44 @@ Configured via Resilience4j across all Gateway routes:
 
 ## Automated Test Suite & Benchmark Results
 
-The entire platform is continuously validated using the automated end-to-end Python test suite in [`test-aitutor.py`](test-aitutor.py).
+The entire microservice stack is validated end-to-end using the automated Python test suite in [`test-aitutor.py`](test-aitutor.py).
 
-### Test Suite Summary
+### Test Summary
 
 | Metric | Result |
-|:---|:---:|
+|:---|:---|
 | **Test Script** | [`test-aitutor.py`](test-aitutor.py) |
-| **Total Test Assertions** | **77** |
-| **Passed** | **77 (100%)** |
-| **Failed** | **0** |
-| **Skipped** | **0** |
-| **Total HTTP Requests Executed** | **145** |
-| **Total Benchmark Duration** | **74.01 seconds** |
-| **Overall Mean Latency** | **214.84 ms** |
-| **Overall Median Latency (P50)** | **20.34 ms** |
-| **Overall 95th Percentile Latency (P95)** | **1,568.47 ms** |
-| **Zero 5xx Server / Connection Errors** | **Verified (0)** |
+| **Assertions Verified** | **77 / 77 Passed (100%)** |
+| **Failures / Skipped** | **0 / 0** |
+| **Total HTTP Requests** | **145 requests** across 74.01s |
+| **Server Errors (5xx)** | **0 (Zero errors)** |
+| **Sustained Throughput** | **402.53 Requests / Second** |
 
-### Measured Latency & Throughput Matrix
+### Key Performance Benchmarks
 
-The following real-world performance metrics were captured during benchmark execution against the running services:
+| Feature / Endpoint | Latency (P50) | Benchmark Highlight |
+|:---|:---:|:---|
+| **Gateway Health Probe** (`GET /health`) | **7.8 ms** | Baseline reverse proxying & routing |
+| **User Authentication** (`POST /api/auth/login`) | **89.2 ms** | BCrypt verification & HS512 JWT issuance |
+| **User Profile Query** (`GET /api/user/profile`) | **17.8 ms** | Authenticated token verification |
+| **Diagnostic Quiz Gen** (`POST /api/path/testSkills`) | **2,147 ms** | 10 tailored conceptual MCQs |
+| **Feasibility Assessment (Cold AI)** | **1,115 ms** | Predictive hours & study plan calculation |
+| **Feasibility Assessment (Cached)** | **15.6 ms** | **71.5x Speedup** over cold AI call |
+| **Roadmap Synthesis** (Days 1–7) | **1,528 ms** | Day-by-day milestone generation |
+| **Lesson Generation (Cold AI Call)** | **3,526 ms** | 4,000-char lesson + 5 curated resources |
+| **Lesson Retrieval (DB Cache)** | **27.6 ms** | **127.9x Speedup** over cold AI call |
+| **AI Mentor Chat (Blocking)** | **1,134 ms** | In-lesson contextual assistant reply |
+| **AI Mentor Streaming (SSE TTFT)** | **2,568 ms** | Time-To-First-Token (~2.5s) |
+| **Rate Limiter Burst (25 Workers)** | **30.4 ms** | 10 OK, 15 Throttled (`429`), 0 errors |
+| **Sustained Load (40 reqs @ 8 workers)** | **16.2 ms** | **402.53 RPS** with zero 5xx errors |
 
-| Endpoint / Operation | HTTP Method | Samples | Min (ms) | P50 Median (ms) | Avg (ms) | P95 (ms) | Max (ms) | Operational Classification |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---|
-| `/health` | `GET` | 6 | 7.44 | **7.77** | 7.99 | 8.66 | 254.16 | Gateway & Service Health Probe |
-| `/helloAI` | `GET` | 1 | 1,207.24 | **1,207.24** | 1,207.24 | 1,207.24 | 1,207.24 | Direct AI Service Ping |
-| `/api/auth/signup` (Input Validation) | `POST` | 1 | 299.46 | **299.46** | 299.46 | 299.46 | 299.46 | 400 Bad Request on Blank Inputs |
-| `/api/auth/signup` (Success) | `POST` | 1 | 88.75 | **88.75** | 88.75 | 88.75 | 88.75 | BCrypt Hash & User Creation |
-| `/api/auth/login` (Unauthorized) | `POST` | 1 | 80.44 | **80.44** | 80.44 | 80.44 | 80.44 | 401 on Bad Password |
-| `/api/auth/login` (Benchmark Profile) | `POST` | 6 | 84.84 | **89.21** | 90.81 | 98.96 | 100.36 | JWT HS512 Issuance & Set-Cookie |
-| `/api/auth/refresh` | `POST` | 1 | 23.16 | **23.16** | 23.16 | 23.16 | 23.16 | HttpOnly Cookie Rotation |
-| `/api/user/profile` | `GET` | 6 | 17.27 | **17.76** | 18.61 | 21.39 | 26.35 | Authenticated Profile Read |
-| `/api/path/testSkills` | `POST` | 1 | 2,147.47 | **2,147.47** | 2,147.47 | 2,147.47 | 2,147.47 | 10-Question Diagnostic Quiz Gen |
-| `/api/path/feasibility` (Cold AI) | `POST` | 1 | 1,115.13 | **1,115.13** | 1,115.13 | 1,115.13 | 1,115.13 | AI Prediction & Feasibility |
-| `/api/path/feasibility` (Cached Warm) | `POST` | 4 | 14.63 | **15.60** | 15.40 | 15.78 | 15.79 | **71.5x Speedup** vs Cold Call |
-| `/api/path/roadmap` (Days 1-7) | `POST` | 1 | 1,528.32 | **1,528.32** | 1,528.32 | 1,528.32 | 1,528.32 | Initial 7-Day Chunk Synthesis |
-| `/api/path/goals` | `GET` | 6 | 15.82 | **17.99** | 19.08 | 22.52 | 22.79 | User Goal State Query |
-| `/api/path/goals/{goalId}` | `GET` | 6 | 12.59 | **13.91** | 14.59 | 18.63 | 19.77 | Single Goal State Resumption |
-| `/api/path/roadmap/{goalId}/days` | `GET` | 6 | 20.97 | **22.74** | 22.47 | 24.06 | 32.76 | Day Metadata & Completion Status |
-| `/api/path/roadmap/{id}/day/1/lesson` (Cold) | `GET` | 1 | 3,526.62 | **3,526.62** | 3,526.62 | 3,526.62 | 3,526.62 | Cold AI Synthesis (3,956 chars) |
-| `/api/path/roadmap/{id}/day/1/lesson` (Warm) | `GET` | 5 | 25.31 | **27.58** | 29.06 | 34.49 | 35.52 | **127.9x Speedup** via DB Cache |
-| `/api/path/roadmap` (Days 8-14 Gate Block) | `POST` | 1 | 25.09 | **25.09** | 25.09 | 25.09 | 25.09 | 400 Bad Request (< 80% complete) |
-| `/api/path/roadmap/{id}/day/{n}/complete` | `PATCH` | 6 | 20.34 | **21.41** | 23.36 | 34.48 | 34.48 | Day Completion State Updates |
-| `/api/path/roadmap` (Days 8-14 Unlocked) | `POST` | 1 | 1,578.50 | **1,578.50** | 1,578.50 | 1,578.50 | 1,578.50 | Success after 85.7% completion |
-| `/api/path/chat` (Blocking AI Mentor) | `POST` | 1 | 1,133.95 | **1,133.95** | 1,133.95 | 1,133.95 | 1,133.95 | Synchronous Mentor Response |
-| `/api/path/chat/stream` (SSE TTFT) | `POST` | 3 | 2,223.36 | **2,568.71** | 2,548.67 | 2,825.42 | 2,853.94 | Time-to-First-Token (~2.5s) |
-| `/api/path/generate` (Legacy Path) | `POST` | 1 | 3,002.55 | **3,002.55** | 3,002.55 | 3,002.55 | 3,002.55 | Legacy Curriculum Generation |
-| `/api/path/all` (Tenancy Isolation) | `GET` | 6 | 12.12 | **13.41** | 13.50 | 14.42 | 14.47 | Multi-Tenant Privacy Isolation |
-| `/api/ai/generate` (Direct LLM) | `POST` | 1 | 4,486.75 | **4,486.75** | 4,486.75 | 4,486.75 | 4,486.75 | Raw LLM Completion Endpoint |
-| `/api/auth/logout` | `POST` | 1 | 18.65 | **18.65** | 18.65 | 18.65 | 18.65 | Token Revocation & Cleanup |
+### Running the Test Script
 
-### Caching & Performance Acceleration
-
-| Resource Type | Cold AI Latency | Warm DB Cache (Median) | Performance Multiplier |
-|:---|:---:|:---:|:---:|
-| **Comprehensive Lesson Generation** | **3,526.62 ms** | **27.58 ms** | **127.9x Faster** |
-| **Feasibility Assessment Report** | **1,115.13 ms** | **15.60 ms** | **71.5x Faster** |
-
-### Concurrency & Rate Limiting Resilience
-
-- **Concurrent Burst Test (25 Workers)**:
-  - 10 requests allowed (`200 OK`) inside the bucket capacity.
-  - 15 requests gracefully throttled with `429 Too Many Requests`.
-  - Zero 5xx errors or broken socket connections (Avg: 30.42 ms, P95: 44.68 ms).
-- **Sustained Concurrent Load (40 Requests @ 8 Concurrent Workers)**:
-  - **Throughput:** **402.53 Requests / Second**
-  - **P50 Latency:** **16.15 ms**
-  - **P95 Latency:** **25.55 ms**
-  - **P99 Latency:** **33.95 ms**
-  - **Server / Connection Errors:** **0**
-
-### Execution Breakdown (77/77 Verified Tests)
-
-<details>
-<summary><strong>Click to expand the complete list of 77 automated test results</strong></summary>
-
-| # | Test Name | Expected | Status Code | Latency | Result |
-|:---:|:---|:---:|:---:|:---:|:---:|
-| 1 | Gateway / Learning Path Health | `[200]` | `200` | 254.16 ms | **PASS** |
-| 2 | Gateway `/health` Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 7.77 ms | **PASS** |
-| 3 | AI Service Hello | `[200]` | `200` | 1,207.24 ms | **PASS** |
-| 4 | AI Hello returned meaningful text | Valid response | `ASSERTION` | — | **PASS** |
-| 5 | Signup Validation - Empty Fields | `[400, 422]` | `400` | 299.46 ms | **PASS** |
-| 6 | Signup Valid User | `[200]` | `200` | 88.75 ms | **PASS** |
-| 7 | Invalid Login Handling | `[400, 401, 403]` | `401` | 80.44 ms | **PASS** |
-| 8 | Valid Login & JWT Issuance | `[200]` | `200` | 93.61 ms | **PASS** |
-| 9 | Login returned access token | Valid token | `ASSERTION` | — | **PASS** |
-| 10 | Auth JWT Login Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 89.21 ms | **PASS** |
-| 11 | Refresh Token Rotation | `[200]` | `200` | 23.16 ms | **PASS** |
-| 12 | Refresh returned new access token | Valid token | `ASSERTION` | — | **PASS** |
-| 13 | Access token rotated | Valid token | `ASSERTION` | — | **PASS** |
-| 14 | Security: Unauthorized User Profile | `[401, 403]` | `401` | 3.86 ms | **PASS** |
-| 15 | Security: Unauthorized Goals | `[401, 403]` | `401` | 3.40 ms | **PASS** |
-| 16 | Security: Invalid JWT Signature | `[401, 403]` | `401` | 26.06 ms | **PASS** |
-| 17 | Security: User ID Header Spoofing Blocked | `[401, 403]` | `401` | 3.21 ms | **PASS** |
-| 18 | Get User Profile | `[200]` | `200` | 26.35 ms | **PASS** |
-| 19 | Profile belongs to authenticated user | Valid ID | `ASSERTION` | — | **PASS** |
-| 20 | Get User Profile Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 17.76 ms | **PASS** |
-| 21 | Generate Diagnostic Quiz | `[200]` | `200` | 2,147.47 ms | **PASS** |
-| 22 | Quiz questions generated (Count: 10) | Valid count | `ASSERTION` | — | **PASS** |
-| 23 | Quiz question structure (with explanations) | Verified | `ASSERTION` | — | **PASS** |
-| 24 | Quiz did not use degraded fallback | Live AI | `ASSERTION` | — | **PASS** |
-| 25 | AI Feasibility Analysis (Cold) | `[200]` | `200` | 1,115.13 ms | **PASS** |
-| 26 | Feasibility response contains isFeasible | Boolean | `ASSERTION` | — | **PASS** |
-| 27 | Estimated days is positive (67 days) | > 0 | `ASSERTION` | — | **PASS** |
-| 28 | Expected outcome returned (`job-ready`) | Expected | `ASSERTION` | — | **PASS** |
-| 29 | Feasibility reason returned | Text | `ASSERTION` | — | **PASS** |
-| 30 | Feasibility did not use degraded fallback | Live AI | `ASSERTION` | — | **PASS** |
-| 31 | Feasibility Refresh / Cached Read [4x Samples] | `4/4 in (200,)` | `BENCHMARKED` | 15.60 ms | **PASS** |
-| 32 | Generate First 7 Days Roadmap | `[200]` | `200` | 1,528.32 ms | **PASS** |
-| 33 | Roadmap contains 7 days | Count = 7 | `ASSERTION` | — | **PASS** |
-| 34 | Roadmap has valid day topics | Topics valid | `ASSERTION` | — | **PASS** |
-| 35 | Roadmap did not use degraded fallback | Live AI | `ASSERTION` | — | **PASS** |
-| 36 | Get All User Goals | `[200]` | `200` | 18.80 ms | **PASS** |
-| 37 | New goal saved in database | Persisted | `ASSERTION` | — | **PASS** |
-| 38 | Get All User Goals Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 17.99 ms | **PASS** |
-| 39 | Get Single Goal Details (State Resume) | `[200]` | `200` | 15.38 ms | **PASS** |
-| 40 | Single goal status is `ROADMAP_GENERATED` | Match | `ASSERTION` | — | **PASS** |
-| 41 | Get Single Goal Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 13.91 ms | **PASS** |
-| 42 | Get Roadmap Days | `[200]` | `200` | 32.76 ms | **PASS** |
-| 43 | Roadmap days persisted in database | Count = 7 | `ASSERTION` | — | **PASS** |
-| 44 | Get Roadmap Days Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 22.74 ms | **PASS** |
-| 45 | Generate Lesson Day 1 (Cold AI Call) | `[200]` | `200` | 3,526.62 ms | **PASS** |
-| 46 | Lesson content generated (3,956 characters) | > 0 chars | `ASSERTION` | — | **PASS** |
-| 47 | Lesson task type returned (`ACTIVITY`) | Expected | `ASSERTION` | — | **PASS** |
-| 48 | Lesson did not use degraded fallback | Live AI | `ASSERTION` | — | **PASS** |
-| 49 | Curated Links (3 YouTube + 2 Docs) | Total = 5 | `ASSERTION` | — | **PASS** |
-| 50 | Fetch Lesson Day 1 (DB Cache Warm Reads) [5x] | `5/5 in (200,)` | `BENCHMARKED` | 27.58 ms | **PASS** |
-| 51 | 80% Gate Block Check (Premature Days 8-14) | `[400]` | `400` | 25.09 ms | **PASS** |
-| 52 | Mark Day 1 Complete | `[200]` | `200` | 34.48 ms | **PASS** |
-| 53 | Mark Day 2 Complete | `[200]` | `200` | 22.15 ms | **PASS** |
-| 54 | Mark Day 3 Complete | `[200]` | `200` | 20.81 ms | **PASS** |
-| 55 | Mark Day 4 Complete | `[200]` | `200` | 21.41 ms | **PASS** |
-| 56 | Mark Day 5 Complete | `[200]` | `200` | 20.96 ms | **PASS** |
-| 57 | Mark Day 6 Complete | `[200]` | `200` | 20.34 ms | **PASS** |
-| 58 | Verify Day 1-6 Completion Persisted | `[200]` | `200` | 22.59 ms | **PASS** |
-| 59 | 6 of 7 days marked completed in DB (85.7%) | 6/7 verified | `ASSERTION` | — | **PASS** |
-| 60 | Generate Days 8-14 (Unlocked at 85.7%) | `[200]` | `200` | 1,578.50 ms | **PASS** |
-| 61 | Days 8-14 generated cleanly | Count = 7 | `ASSERTION` | — | **PASS** |
-| 62 | AI Mentor Chat (Blocking Synchronous) | `[200]` | `200` | 1,133.95 ms | **PASS** |
-| 63 | AI chat returned meaningful explanation | Expected | `ASSERTION` | — | **PASS** |
-| 64 | AI chat did not return fallback message | Live AI | `ASSERTION` | — | **PASS** |
-| 65 | AI Mentor Chat (SSE Stream TTFT) [3x Samples] | `[200]` | `200` | 2,568.71 ms | **PASS** |
-| 66 | Generate Career Learning Path (Legacy) | `[200]` | `200` | 3,002.55 ms | **PASS** |
-| 67 | Legacy AI path returned valid JSON | Valid JSON | `ASSERTION` | — | **PASS** |
-| 68 | Get All Learning Paths | `[200]` | `200` | 13.02 ms | **PASS** |
-| 69 | Learning paths endpoint returned a list | List valid | `ASSERTION` | — | **PASS** |
-| 70 | Security: No other users' paths exposed | Foreign = 0 | `ASSERTION` | — | **PASS** |
-| 71 | Get All Learning Paths Latency Profile [5x Samples] | `5/5 in (200,)` | `BENCHMARKED` | 13.41 ms | **PASS** |
-| 72 | Direct AI Generate API | `[200]` | `200` | 4,486.75 ms | **PASS** |
-| 73 | Direct AI generated meaningful response | Expected | `ASSERTION` | — | **PASS** |
-| 74 | Concurrent Redis Rate-Limiter Burst (25 requests) | 200 + 429 | `COMPLETED` | 30.42 ms | **PASS** |
-| 75 | Sustained Concurrent Load (40 reqs @ 8 workers) | Zero 5xx | `COMPLETED` | 17.20 ms | **PASS** |
-| 76 | User Logout | `[200]` | `200` | 18.65 ms | **PASS** |
-| 77 | Security: Logout Revokes Refresh Token | `401` | `401` | — | **PASS** |
-
-</details>
-
-### How to Run the Python Test Suite
-
-The test suite requires Python 3.8+ and the standard `requests` library:
-
-```powershell
-# 1. Install dependencies
+```bash
+# 1. Install dependency
 pip install requests
 
-# 2. Run the test suite against the local stack
-python test-aitutor.py
-```
-
-Optional environment variable overrides for custom test environments:
-
-```powershell
-$env:BASE_URL = "http://localhost:8080"
-$env:AI_BASE_URL = "http://localhost:8083"
-$env:AI_GATEWAY_SECRET = "3b5234cd94a6aaf7618ec79ca4d4ecff21d248d4fd43f3cf"
+# 2. Run the end-to-end test suite
 python test-aitutor.py
 ```
 

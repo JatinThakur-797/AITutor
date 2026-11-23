@@ -21,7 +21,7 @@
              ┌─────────────┘  ┌─────┘   ┌─┘
     ┌─────────▼──────┐ ┌──────▼──────┐ ┌▼───────────────────┐
     │  User-Service  │ │  AI-Service │ │ LearningPath-       │
-    │  (Port 8080)   │ │  (Port 1010)│ │ Generator (8085)    │
+    │  (Port 8080)   │ │  (Port 1010)│ │ Generator (8082)    │
     │  JWT Auth      │ │  Groq LLM   │ │ Goal/Quiz/Roadmap   │
     │  OAuth2        │ │  Spring AI  │ │ Lesson Generation   │
     │  MySQL         │ │             │ │ MySQL               │
@@ -63,7 +63,7 @@
 - Ultra-fast LLM inference via Groq's GroqChip hardware
 - Handles: quiz generation, feasibility analysis, roadmap building, lesson content, AI chat mentor
 
-### 5. `LearningPathGenerator` — Core Learning Engine (Port 8085)
+### 5. `LearningPathGenerator` — Core Learning Engine (Port 8082)
 - Orchestrates the full 5-phase AI tutoring pipeline
 - Communicates with `AIService` via **OpenFeign** client
 - **Database**: MySQL `ai_tutor` schema
