@@ -1,5 +1,15 @@
 package com.path.service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,17 +21,9 @@ import com.path.dto.QuizResponse;
 import com.path.dto.RoadmapResponse;
 import com.path.entity.UserGoal;
 import com.path.prompts.PromptsClass;
+
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +31,7 @@ public class AIService {
     private static final Logger log = LoggerFactory.getLogger(AIService.class);
 
     public static final String DEGRADED_MESSAGE = "The AI service is currently unavailable or timed out. Please verify AIService is running and retry.";
-    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_ATTEMPTS = 2;
 
     private final AIClient aiClient;
     private final ObjectMapper mapper;
@@ -41,7 +43,7 @@ public class AIService {
     }
 
     // ──────────────────────────────────────────────
-    // QUIZ (WITH AUTOMATIC RETRY & JSON RECOVERY)
+    // QUIZ (WITH FAST RETRY & JSON RECOVERY)
     // ──────────────────────────────────────────────
     public QuizResponse generateQuiz(String prompt) {
         String currentPrompt = prompt;
@@ -88,7 +90,7 @@ public class AIService {
             } catch (Exception e) {
                 log.warn("Quiz generation attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
                 if (attempt < MAX_ATTEMPTS) {
-                    currentPrompt = prompt + "\n\nCRITICAL: Your previous output was invalid. Return ONLY a single valid JSON object matching the exact schema with no markdown fences.";
+                    currentPrompt = prompt + "\n\nCRITICAL: Return ONLY a single valid JSON object matching the exact schema with no markdown fences.";
                     sleepBackoff(attempt);
                 }
             }
@@ -99,7 +101,7 @@ public class AIService {
     }
 
     // ──────────────────────────────────────────────
-    // FEASIBILITY (WITH AUTOMATIC RETRY & JSON RECOVERY)
+    // FEASIBILITY (WITH FAST RETRY & JSON RECOVERY)
     // ──────────────────────────────────────────────
     public FeasibilityResponse checkFeasibility(UserGoal goal) {
         String basePrompt = prompts.buildFeasibilityPrompt(goal);
@@ -138,7 +140,7 @@ public class AIService {
     }
 
     // ──────────────────────────────────────────────
-    // ROADMAP (WITH AUTOMATIC RETRY & JSON RECOVERY)
+    // ROADMAP (WITH FAST RETRY & JSON RECOVERY)
     // ──────────────────────────────────────────────
     public RoadmapResponse generateRoadmap(String prompt) {
         String currentPrompt = prompt;
@@ -182,10 +184,10 @@ public class AIService {
     }
 
     // ──────────────────────────────────────────────
-    // LESSON (WITH AUTOMATIC RETRY)
+    // LESSON (WITH FAST RETRY)
     // ──────────────────────────────────────────────
     public LessonResponse generateLesson(String prompt) {
-        for (int attempt = 1; attempt <= 2; attempt++) {
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
                 String response = aiClient.generatePath(prompt);
 
@@ -282,7 +284,7 @@ public class AIService {
 
             } catch (Exception e) {
                 log.warn("Lesson generation attempt {} failed: {}", attempt, e.getMessage());
-                if (attempt < 2) {
+                if (attempt < MAX_ATTEMPTS) {
                     sleepBackoff(attempt);
                 }
             }
@@ -293,7 +295,7 @@ public class AIService {
 
     private void sleepBackoff(int attempt) {
         try {
-            Thread.sleep(400L * attempt);
+            Thread.sleep(250L * attempt);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }
